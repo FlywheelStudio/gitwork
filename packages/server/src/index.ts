@@ -32,3 +32,5 @@ export {
   revokeInvite,
 } from "./services/invites";
 export { type MemberView, changeMemberRole, listMembers, removeMember } from "./services/members";
+export { type ApiDeps, createApiHandler } from "./api/router";
+export { handleApiRequest } from "./api/routes";
