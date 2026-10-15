@@ -12,5 +12,11 @@
     "test": "vitest run",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "5.0.4"
   }
 }

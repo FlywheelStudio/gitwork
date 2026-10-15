@@ -29,3 +29,21 @@ Root config, `apps/web/**`, `packages/core/**`, `packages/db/**`, `CLAUDE.md` (c
 
 ## Build log
 - 2026-10-15: Branch created. pnpm runs through corepack (not installed globally).
+- Spike step 2: Next.js renders under `opennextjs-cloudflare preview`. `cacheComponents` (on in
+  the create-next-app template) hangs every request under workerd. Turned off.
+- pnpm 12 enforces `minimumReleaseAge` (1 day). `pnpm add` of a too-new version silently writes a
+  `minimumReleaseAgeExclude` entry to `pnpm-workspace.yaml`. Removed the list; pinned versions older
+  than one day instead. Check that file after every `pnpm add`.
+- OpenNext 1.20.11 + Next 16.4.x fails at runtime: `Unexpected loadManifest(.../preview-props.json)`.
+  1.20.12 adds 16.4 support but was too new for the policy. Pinned Next 16.3.8 + OpenNext 1.20.11.
+  Move to 16.4 when OpenNext 1.20.12 passes the age policy.
+- Node driver: libsql (`@libsql/client`) instead of better-sqlite3. It is async like D1, supports
+  Drizzle `batch()`, and ships prebuilt binaries (no install scripts). `Db` type hides
+  `transaction()`; `batch()` is the only atomic write (D1 has no interactive transactions).
+- Driver split is build-time: `next.config.ts` aliases `@gitwork/db-runtime` to the D1 or libsql
+  runtime based on `GITWORK_TARGET`. The smoke script fails if libsql code reaches the Worker
+  bundle; a deliberate wrong-target build produced 24 hits, so the check can fail.
+- Migration code lives in `@gitwork/db/migrate`, apart from `@gitwork/db/node`: Turbopack tried to
+  bundle `new URL("../migrations", import.meta.url)` as an asset.
+- `wrangler d1 migrations apply --local` reads drizzle-kit's `migrations/` folder as written.
+- D1 contract test inspects the client behind the `Database` object; swapping in libsql turns it red.

@@ -8,14 +8,22 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "cf:build": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
+    "cf:build": "GITWORK_TARGET=cloudflare opennextjs-cloudflare build",
+    "preview": "pnpm cf:build && pnpm cf:migrate:local && opennextjs-cloudflare preview",
+    "predev": "pnpm db:migrate",
+    "db:migrate": "tsx ../../packages/db/src/migrate-cli.ts",
+    "cf:migrate:local": "wrangler d1 migrations apply DB --local",
+    "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@opennextjs/cloudflare": "1.20.12",
-    "next": "16.4.1",
+    "@gitwork/core": "workspace:*",
+    "@gitwork/db": "workspace:*",
+    "@opennextjs/cloudflare": "1.20.11",
+    "drizzle-orm": "0.45.4",
+    "next": "16.3.8",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
@@ -24,8 +32,9 @@
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.1",
+    "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
+    "tsx": "4.23.15",
     "typescript": "^5",
     "wrangler": "4.151.0"
   },

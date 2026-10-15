@@ -8,6 +8,15 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gitwork",
+      // Local placeholder. Before deploying, run `wrangler d1 create gitwork` and paste the real ID.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
   "services": [
     {
       // Self-reference binding. The service name must match the worker name.
