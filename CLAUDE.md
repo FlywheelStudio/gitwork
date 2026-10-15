@@ -16,14 +16,26 @@ markdown. People without GitHub accounts get role-based access.
 
 ## Commands
 
-Not scaffolded yet. Phase 0 replaces this section with real `pnpm` commands for dev, build, test,
-lint, and typecheck.
+Run from the repo root. pnpm comes from corepack (`corepack enable`).
 
-## Codebase map (planned)
+```bash
+pnpm install
+pnpm dev            # Node + SQLite file (apps/web/.data/), runs migrations first
+pnpm preview        # OpenNext build + local D1 migrations + workerd
+pnpm lint           # ESLint: eslint-config-next in apps/web, typescript-eslint in packages/*
+pnpm typecheck
+pnpm test           # Vitest; the DB contract runs on libsql and on D1 (wrangler getPlatformProxy)
+pnpm test:e2e       # Playwright against the Node runtime
+pnpm smoke          # scripts/smoke.sh: both runtimes end to end + Worker bundle scan
+pnpm db:generate    # drizzle-kit: new migration from packages/db/src/schema.ts
+pnpm db:migrate     # apply migrations to the local SQLite file
+```
+
+## Codebase map
 
 ```
 apps/web        Next.js app, /api/v1 REST API, GitHub webhooks
-apps/mac        Native macOS app (AppKit + TextKit 2)
+apps/mac        Native macOS app (AppKit + TextKit 2) — Phase 6, not created yet
 packages/core   Permissions, visibility filter, GitHub sync, attribution, markdown round trip
 packages/db     Drizzle schema + migrations (SQLite dialect), D1 and file drivers
 docs/           INDEX.md → STATE.md → spec.md, decisions/
@@ -37,10 +49,17 @@ docs/           INDEX.md → STATE.md → spec.md, decisions/
 - The markdown editors must leave untouched lines byte-identical. The round-trip fixture suite
   guards this; never weaken it.
 - Platform services go behind the adapters in decision 004. Core code must run on plain Node.
+- The DB driver is chosen at build time (`GITWORK_TARGET`, see `apps/web/next.config.ts`). Import the
+  database only through `@/server/db`. Never import `@gitwork/db/node` or `/migrate` from app code.
+- Use `db.batch()` for atomic writes. Never `db.transaction()`: D1 does not support it.
+- pnpm enforces a one-day `minimumReleaseAge`. After any `pnpm add`, check `pnpm-workspace.yaml`
+  for a new `minimumReleaseAgeExclude` entry and remove it; pin an older version instead.
+- `next dev` rewrites `apps/web/AGENTS.md`. Commit it as is.
 
 ## Environment variables
 
-`.env.example` arrives in Phase 0. Never commit `.env*` files.
+See `.env.example`. Node hosts read `DATABASE_URL`; Cloudflare uses the `DB` binding in
+`apps/web/wrangler.jsonc`. Never commit `.env*` files.
 
 ## Start here
 

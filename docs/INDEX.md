@@ -25,12 +25,8 @@
 | 014 | [Notifications without email in v1](decisions/014-notifications.md) |
 | 015 | [pnpm monorepo, versioned REST API, working name](decisions/015-monorepo-api.md) |
 
-## Work in progress
+## Features
 
 | Doc | Description |
 |---|---|
-| [wip/scaffold.md](wip/scaffold.md) | Phase 0 build log: monorepo, both DB drivers, CI. |
-
-## Features
-
-None shipped yet.
+| [features/scaffold.md](features/scaffold.md) | Monorepo, D1 + libsql behind one `Db` type, build-time driver split, tests, CI. |
