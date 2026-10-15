@@ -1,0 +1,33 @@
+# Dependencies and build output
+node_modules/
+.next/
+.open-next/
+.wrangler/
+dist/
+build/
+*.tsbuildinfo
+
+# Local data
+*.sqlite
+*.sqlite3
+*.db
+
+# Secrets
+.env*
+!.env.example
+.dev.vars*
+
+# Mac app
+apps/mac/.build/
+apps/mac/DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Local agent setup (not part of the product)
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/skills/
+.agents/
+skills-lock.json
+
+.DS_Store
