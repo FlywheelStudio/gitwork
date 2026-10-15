@@ -46,6 +46,7 @@ Each has a record in `docs/decisions/`.
 | 013 | Native Mac app: AppKit + TextKit 2. v1 = docs, list, kanban. Offline reads and doc drafts. |
 | 014 | Notifications: in-app inbox and native macOS notifications. No email notifications in v1. |
 | 015 | pnpm monorepo. Versioned REST API `/api/v1` with an OpenAPI spec. |
+| 016 | libsql on Node; `batch()` is the only atomic write; build-time driver split. |
 
 ## Roles
 
@@ -127,8 +128,8 @@ repos.
 
 - **Projects v2 webhooks are in public preview.** The 15-minute reconcile covers missed or changed
   events. Track GitHub's changelog.
-- **Two SQLite drivers.** D1 is async (a Worker binding); a SQLite file driver may be sync. `packages/db`
-  must expose one async interface, and CI runs the suite against both.
+- **Two SQLite drivers.** Resolved in Phase 0 (decision 016): libsql on Node, D1 on Workers, one
+  async `Db` type, `batch()` as the only atomic write. CI runs the contract suite on both.
 - **Markdown fidelity.** A WYSIWYG editor that re-serializes markdown breaks the byte-exact
   guarantee. Both editors edit source text and hide syntax marks on display, as flo-state does.
 - **Installing the GitHub App needs an org owner** (or an approved request). The setup wizard must

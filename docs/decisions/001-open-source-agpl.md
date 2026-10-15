@@ -7,7 +7,8 @@ Gitwork is a SaaS product, not an internal tool. The owner wants a public repo t
 self-host, and a paid hosted version run by Flywheel.
 
 ## Decision
-- License the code under AGPL-3.0.
+- License the code under AGPL-3.0, SPDX `AGPL-3.0-only` (pending owner confirmation, 2026-10-15).
+  Without a contributor agreement, a later move to "-or-later" needs every contributor's consent.
 - Self-hosters choose where to run it. Gitwork supports Cloudflare Workers and any Node host (Docker).
 - Ship a setup wizard. On first run it collects the admin email and SMTP settings, then uses
   GitHub's App manifest flow to create the team's own GitHub App in one click.

@@ -24,6 +24,7 @@
 | 013 | [Native Mac app](decisions/013-native-mac-app.md) |
 | 014 | [Notifications without email in v1](decisions/014-notifications.md) |
 | 015 | [pnpm monorepo, versioned REST API, working name](decisions/015-monorepo-api.md) |
+| 016 | [libsql on Node, batch-only atomic writes, build-time driver split](decisions/016-db-driver-and-atomic-writes.md) |
 
 ## Features
 
