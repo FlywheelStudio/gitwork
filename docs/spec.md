@@ -48,6 +48,7 @@ Each has a record in `docs/decisions/`.
 | 015 | pnpm monorepo. Versioned REST API `/api/v1` with an OpenAPI spec. |
 | 016 | libsql on Node; `batch()` is the only atomic write; build-time driver split. |
 | 017 | Better Auth for identity only. GitHub link needed for GitHub tasks only. Sign-up policy is an instance setting. |
+| 018 | Every member, Read Only included, sees all members' names and emails. |
 
 ## Roles
 

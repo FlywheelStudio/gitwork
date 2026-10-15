@@ -26,6 +26,7 @@
 | 015 | [pnpm monorepo, versioned REST API, working name](decisions/015-monorepo-api.md) |
 | 016 | [libsql on Node, batch-only atomic writes, build-time driver split](decisions/016-db-driver-and-atomic-writes.md) |
 | 017 | [Identity: Better Auth for identity only; GitHub gate; sign-up policy](decisions/017-identity.md) |
+| 018 | [Everyone in a workspace sees all members' names and emails](decisions/018-member-list-visibility.md) |
 
 ## Features
 
