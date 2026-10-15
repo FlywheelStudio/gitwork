@@ -47,6 +47,7 @@ Each has a record in `docs/decisions/`.
 | 014 | Notifications: in-app inbox and native macOS notifications. No email notifications in v1. |
 | 015 | pnpm monorepo. Versioned REST API `/api/v1` with an OpenAPI spec. |
 | 016 | libsql on Node; `batch()` is the only atomic write; build-time driver split. |
+| 017 | Better Auth for identity only. GitHub link needed for GitHub tasks only. Sign-up policy is an instance setting. |
 
 ## Roles
 
@@ -62,7 +63,9 @@ Each has a record in `docs/decisions/`.
 | Workspace settings (repos, board, fields, hiding, review mode) | ✓ | ✓ | ✗ | ✗ |
 | Manage Admins, delete workspace | ✓ | ✗ | ✗ | ✗ |
 | See full audit log | ✓ | ✓ | ✗ | ✗ |
-| **Needs a linked GitHub account** | **Yes** | **Yes** | No | No |
+| **Needs a linked GitHub account** | For GitHub tasks* | For GitHub tasks* | No | No |
+
+\* GitHub tasks: install the App; set the workspace's repos, board, and fields (decision 017).
 
 Account Owners get Owner in every workspace the account owns. One login works across accounts.
 

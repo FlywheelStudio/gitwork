@@ -11,7 +11,7 @@ Roles are Owner, Admin, Member, Read Only, set per workspace. No custom roles in
 matrix lives in `docs/spec.md` → Roles. Key rules:
 
 - Owner and Admin need a linked GitHub account, because they install the App and pick org repos
-  and boards.
+  and boards. **Narrowed by 017:** only those GitHub tasks need the link.
 - Member and Read Only do not need GitHub.
 - Read Only can comment and file requests only when the workspace setting allows it (off by
   default).

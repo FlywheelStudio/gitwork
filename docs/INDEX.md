@@ -25,6 +25,13 @@
 | 014 | [Notifications without email in v1](decisions/014-notifications.md) |
 | 015 | [pnpm monorepo, versioned REST API, working name](decisions/015-monorepo-api.md) |
 | 016 | [libsql on Node, batch-only atomic writes, build-time driver split](decisions/016-db-driver-and-atomic-writes.md) |
+| 017 | [Identity: Better Auth for identity only; GitHub gate; sign-up policy](decisions/017-identity.md) |
+
+## Work in progress
+
+| Doc | Description |
+|---|---|
+| [wip/identity.md](wip/identity.md) | Phase 1: sign-in, accounts, workspaces, roles, invites, GitHub link. |
 
 ## Features
 

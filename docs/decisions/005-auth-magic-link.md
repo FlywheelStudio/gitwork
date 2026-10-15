@@ -11,6 +11,8 @@ sign-in.
 - Sign-in email carries a magic link **and** a 6-digit code. The link opens the Mac app through a
   custom URL scheme. The code works when the email is open on another device.
 - Users can link a GitHub account. Owners and Admins must (007).
+- **Superseded in part by 017:** creating an Account follows an instance sign-up setting; joining a
+  workspace stays invite-only.
 - Invite-only: an Owner or Admin enters an email and a role for one workspace. The invite expires
   after 7 days. No auto-join by email domain in v1.
 
