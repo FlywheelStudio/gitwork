@@ -61,6 +61,12 @@ docs/           INDEX.md → STATE.md → spec.md, decisions/
 - pnpm enforces a one-day `minimumReleaseAge`. After any `pnpm add`, check `pnpm-workspace.yaml`
   for a new `minimumReleaseAgeExclude` entry and remove it; pin an older version instead.
 - `next dev` rewrites `apps/web/AGENTS.md`. Commit it as is.
+- GitHub data: never call GitHub from a page render. Read the cache (`gh_*` tables); writes to the
+  cache go through `packages/server/src/github/cache.ts` (guarded, one statement each).
+- Secrets at rest go through the secret box with a purpose label (`SEALED` in `github/config.ts`).
+- `apps/web/worker.ts` is the Worker entry (OpenNext fetch + Cron Trigger). The Node timer starts
+  from `src/instrumentation.ts`.
+- Tests that need GitHub use `packages/server/test/fake-github.ts`; never real GitHub in CI.
 
 ## Environment variables
 

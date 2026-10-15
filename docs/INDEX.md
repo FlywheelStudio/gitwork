@@ -27,6 +27,7 @@
 | 016 | [libsql on Node, batch-only atomic writes, build-time driver split](decisions/016-db-driver-and-atomic-writes.md) |
 | 017 | [Identity: Better Auth for identity only; GitHub gate; sign-up policy](decisions/017-identity.md) |
 | 018 | [Everyone in a workspace sees all members' names and emails](decisions/018-member-list-visibility.md) |
+| 019 | [Instance admins and email from the environment; wizard creates the GitHub App](decisions/019-instance-setup.md) |
 
 ## Features
 
@@ -34,3 +35,4 @@
 |---|---|
 | [features/scaffold.md](features/scaffold.md) | Monorepo, D1 + libsql behind one `Db` type, build-time driver split, tests, CI. |
 | [features/identity.md](features/identity.md) | Email-code sign-in, accounts, workspaces, roles, invites, GitHub link, `/api/v1`. |
+| [features/github-app.md](features/github-app.md) | Setup wizard, GitHub App, installations, webhooks, cache, reconcile. |

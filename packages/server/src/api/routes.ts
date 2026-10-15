@@ -13,7 +13,14 @@ import {
   revokeInvite,
 } from "../services/invites";
 import { changeMemberRole, listMembers, removeMember } from "../services/members";
-import { createApiHandler, route } from "./router";
+import { getSignupPolicy, setSignupPolicy } from "../instance-settings";
+import { installUrl, isInstanceAdmin, startManifestFlow } from "../github/setup";
+import { forbidden } from "../errors";
+import { type RouteContext, createApiHandler, route } from "./router";
+
+function requireInstanceAdmin(ctx: RouteContext) {
+  if (!isInstanceAdmin(ctx.session!.user.email, ctx.deps.instanceAdminEmails ?? [])) throw forbidden();
+}
 
 const name = z.string().trim().min(1, "Name is required.").max(100, "Name is too long.");
 const role = z.enum(ROLES);
@@ -36,7 +43,11 @@ export const routes = [
     pattern: "/accounts",
     body: z.object({ accountName: name, workspaceName: name }),
     async handler({ deps, session, body }) {
-      return createAccountWithWorkspace(deps.database.db, { userId: session!.user.id, ...body });
+      return createAccountWithWorkspace(deps.database.db, {
+        userId: session!.user.id,
+        ...body,
+        isInstanceAdmin: isInstanceAdmin(session!.user.email, deps.instanceAdminEmails ?? []),
+      });
     },
   }),
 
@@ -54,11 +65,13 @@ export const routes = [
     pattern: "/workspaces/:workspaceId",
     async handler({ deps, session, params }) {
       const access = await requireWorkspaceAccess(deps.database.db, session!.user.id, params.workspaceId!);
+      const capabilities = CAPABILITIES.filter((c) => can(access.actor, c, access.settings));
       return {
         workspace: access.workspace,
         role: access.role,
         hasGitHub: access.actor.hasGitHub,
-        capabilities: CAPABILITIES.filter((c) => can(access.actor, c, access.settings)),
+        capabilities,
+        githubInstallUrl: deps.github && capabilities.includes("github.install_app") ? installUrl(deps.github.app) : null,
       };
     },
   }),
@@ -152,5 +165,38 @@ export const routes = [
     },
   }),
 ];
+
+routes.push(
+  route({
+    method: "GET",
+    pattern: "/setup",
+    async handler(ctx) {
+      requireInstanceAdmin(ctx);
+      const app = ctx.deps.github?.app;
+      return {
+        github: app ? { configured: true, slug: app.slug, htmlUrl: app.htmlUrl, source: app.source } : { configured: false },
+        signups: await getSignupPolicy(ctx.deps.database.db),
+      };
+    },
+  }),
+  route({
+    method: "POST",
+    pattern: "/setup/github/manifest",
+    body: z.object({ org: z.string().trim().max(39).optional(), name: z.string().trim().max(34).optional() }),
+    async handler(ctx) {
+      requireInstanceAdmin(ctx);
+      return startManifestFlow(ctx.deps.database.db, { userId: ctx.session!.user.id, baseURL: ctx.deps.baseURL, ...ctx.body });
+    },
+  }),
+  route({
+    method: "PUT",
+    pattern: "/setup/signups",
+    body: z.object({ policy: z.enum(["open", "invite-only"]) }),
+    async handler(ctx) {
+      requireInstanceAdmin(ctx);
+      await setSignupPolicy(ctx.deps.database.db, ctx.body.policy);
+    },
+  }),
+);
 
 export const handleApiRequest = createApiHandler(routes);

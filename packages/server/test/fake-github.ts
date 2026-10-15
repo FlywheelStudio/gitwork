@@ -63,6 +63,18 @@ export class FakeGitHub {
       this.tokensIssued++;
       return Response.json({ token: `ghs_token_${this.tokensIssued}`, expires_at: new Date(Date.now() + 60 * 60_000).toISOString() });
     }
+    if ((m = /^\/app\/installations\/(\d+)$/.exec(path)) && method === "GET") {
+      if (!init?.headers || !String((init.headers as Record<string, string>).authorization).startsWith("Bearer ey")) {
+        return new Response("{}", { status: 401 });
+      }
+      const id = Number(m[1]);
+      return id === 404 ? new Response("{}", { status: 404 }) : Response.json({
+        id,
+        account: { login: "acme", id: 7, type: "Organization" },
+        repository_selection: "all",
+        suspended_at: null,
+      });
+    }
     if ((m = /^\/repos\/([^/]+\/[^/]+)\/issues\/(\d+)$/.exec(path))) {
       const issue = this.issues.get(m[1]!)?.find((i) => i.number === Number(m![2]));
       return issue ? Response.json(issue) : new Response("{}", { status: 404 });

@@ -13,9 +13,11 @@ function cleanName(value: string, what: string): string {
 
 /**
  * Who may create an Account (decision 017). Open instances: anyone signed in. Invite-only
- * instances: the first Account on the instance, or someone who already owns an Account.
+ * instances: instance admins, the first Account on the instance, or someone who already owns an
+ * Account.
  */
-async function mayCreateAccount(db: Db, userId: string): Promise<boolean> {
+async function mayCreateAccount(db: Db, userId: string, isInstanceAdmin: boolean): Promise<boolean> {
+  if (isInstanceAdmin) return true;
   if ((await getSignupPolicy(db)) === "open") return true;
   const [anyAccount] = await db.select({ id: accounts.id }).from(accounts).limit(1);
   if (!anyAccount) return true;
@@ -26,11 +28,11 @@ async function mayCreateAccount(db: Db, userId: string): Promise<boolean> {
 /** Creates an Account, makes the user its Owner, and creates its first workspace — atomically. */
 export async function createAccountWithWorkspace(
   db: Db,
-  input: { userId: string; accountName: string; workspaceName: string },
+  input: { userId: string; accountName: string; workspaceName: string; isInstanceAdmin?: boolean },
 ): Promise<{ accountId: string; workspaceId: string }> {
   const accountName = cleanName(input.accountName, "Account name");
   const workspaceName = cleanName(input.workspaceName, "Workspace name");
-  if (!(await mayCreateAccount(db, input.userId))) {
+  if (!(await mayCreateAccount(db, input.userId, input.isInstanceAdmin ?? false))) {
     throw forbidden("account_creation_closed", "New accounts are invite-only on this instance.");
   }
   const accountId = newId();

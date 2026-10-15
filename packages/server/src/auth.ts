@@ -23,6 +23,8 @@ export interface AuthConfig {
    * and the per-email limit still applies.
    */
   trustedIpHeader?: string;
+  /** Lowercase emails from INSTANCE_ADMIN_EMAILS. They may always sign up. */
+  instanceAdminEmails?: string[];
 }
 
 /**
@@ -95,7 +97,7 @@ export function createAuth(config: AuthConfig) {
         create: {
           before: async (user) => {
             const email = user.email.toLowerCase();
-            if (!(await mayCreateUser(db, email))) {
+            if (!(await mayCreateUser(db, email, new Date(), config.instanceAdminEmails))) {
               throw new APIError("FORBIDDEN", { message: "Sign-ups are invite-only on this instance." });
             }
             return { data: { ...user, email } };

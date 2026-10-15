@@ -24,6 +24,8 @@ export default defineConfig({
       EMAIL_OUTBOX_PATH: E2E_OUTBOX,
       BETTER_AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-e2e",
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
+      INSTANCE_ADMIN_EMAILS: "admin@example.com",
+      GITWORK_SCHEDULER: "off",
     },
   },
 });

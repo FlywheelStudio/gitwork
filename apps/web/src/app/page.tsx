@@ -2,18 +2,25 @@ import { listMyWorkspaces } from "@gitwork/server";
 import Link from "next/link";
 import { Header } from "@/components/header";
 import { ROLE_LABEL } from "@/components/ui";
-import { getDeps } from "@/server/context";
+import { getDeps, isAdmin } from "@/server/context";
 import { requireUser } from "@/server/pages";
 import { Onboarding } from "./onboarding";
 
 export default async function Home() {
   const user = await requireUser("/");
-  const workspaces = await listMyWorkspaces(getDeps().database.db, user.id);
+  const deps = await getDeps();
+  const workspaces = await listMyWorkspaces(deps.database.db, user.id);
+  const needsSetup = isAdmin(user.email) && !deps.github;
 
   return (
     <>
       <Header email={user.email} />
-      <main className="mx-auto w-full max-w-3xl flex-1 p-6">
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 p-6">
+        {needsSetup && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950">
+            This instance has no GitHub App yet. <Link href="/setup" className="font-medium underline">Finish setup</Link>
+          </p>
+        )}
         {workspaces.length === 0 ? (
           <Onboarding />
         ) : (
