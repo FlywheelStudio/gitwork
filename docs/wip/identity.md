@@ -105,3 +105,13 @@ None.
   text enums are TypeScript-only; SQLite needs the CHECK.
 - Test helpers moved to `@gitwork/db/testing` (`allTestDrivers()` → libsql + D1).
 - New package `@gitwork/server`: auth factory, email adapters, sign-up rule, services.
+- Services done (`@gitwork/server/src/services`): access, accounts, members, invites. 40 service
+  tests per driver pass. Removing the guard from the membership INSERT fails the expired, revoked,
+  and wrong-email tests on both drivers.
+- No "last Owner" guard per workspace: Account Owners are Owner in every workspace of the account,
+  so a workspace always has one. The guard belongs on removing Account Owners (not in Phase 1).
+- Account creation on `invite-only` instances: allowed for the first Account on the instance, or
+  for a user who already owns an Account.
+- Role changes and removals use `WHERE role = <checked role>`; a concurrent change returns 409.
+- Account Owners cannot be changed or removed per workspace (409 `account_owner`).
+- Anyone may leave a workspace. All members, including Read Only, can see the member list.
