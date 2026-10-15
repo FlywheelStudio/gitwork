@@ -6,7 +6,7 @@
  *   - Tombstoned (deleted) rows never come back.
  */
 import { type Db, type ProjectFieldValue, ghIssues, ghProjectFields, ghProjectItems, ghProjects, ghRepos } from "@gitwork/db";
-import { type SQL, and, eq, getTableColumns, lt, not, sql } from "drizzle-orm";
+import { type SQL, and, eq, getTableColumns, lt, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 
 export type Freshness = "newer" | "fresh";
@@ -246,31 +246,53 @@ export function tombstoneProjectItem(db: Db, nodeId: string, projectNodeId: stri
 }
 
 
-/** After a complete sweep: rows GitHub no longer lists were deleted or moved. Tombstone them. */
-export function tombstoneUnseenIssues(db: Db, repoNodeId: string, seen: string[], sweepStartedAt: Date) {
-  return db
-    .update(ghIssues)
-    .set({ deleted: true })
+/** Mark rows as seen by the deletion sweep in progress (one statement per page). */
+export function touchIssues(db: Db, nodeIds: string[], at: Date) {
+  return db.update(ghIssues).set({ syncedAt: at }).where(inJsonList(ghIssues.nodeId, nodeIds));
+}
+
+export function touchProjectItems(db: Db, nodeIds: string[], at: Date) {
+  return db.update(ghProjectItems).set({ syncedAt: at }).where(inJsonList(ghProjectItems.nodeId, nodeIds));
+}
+
+/** Rows the finished sweep did not see: candidates for deletion, to be verified with GitHub. */
+export async function unseenIssues(db: Db, repoNodeId: string, sweepStartedAt: Date, limit: number): Promise<string[]> {
+  const rows = await db
+    .select({ nodeId: ghIssues.nodeId })
+    .from(ghIssues)
     .where(
       and(
         eq(ghIssues.repoNodeId, repoNodeId),
         eq(ghIssues.deleted, false),
+        lt(ghIssues.syncedAt, sweepStartedAt),
         lt(ghIssues.githubUpdatedAt, sweepStartedAt),
-        not(inJsonList(ghIssues.nodeId, seen)),
       ),
-    );
+    )
+    .limit(limit);
+  return rows.map((r) => r.nodeId);
 }
 
-export function tombstoneUnseenProjectItems(db: Db, projectNodeId: string, seen: string[], sweepStartedAt: Date) {
-  return db
-    .update(ghProjectItems)
-    .set({ deleted: true })
+export async function unseenProjectItems(db: Db, projectNodeId: string, sweepStartedAt: Date, limit: number): Promise<string[]> {
+  const rows = await db
+    .select({ nodeId: ghProjectItems.nodeId })
+    .from(ghProjectItems)
     .where(
       and(
         eq(ghProjectItems.projectNodeId, projectNodeId),
         eq(ghProjectItems.deleted, false),
+        lt(ghProjectItems.syncedAt, sweepStartedAt),
         lt(ghProjectItems.githubUpdatedAt, sweepStartedAt),
-        not(inJsonList(ghProjectItems.nodeId, seen)),
       ),
-    );
+    )
+    .limit(limit);
+  return rows.map((r) => r.nodeId);
+}
+
+/** Verified gone (or moved elsewhere): tombstone. */
+export function markIssuesDeleted(db: Db, nodeIds: string[]) {
+  return db.update(ghIssues).set({ deleted: true }).where(inJsonList(ghIssues.nodeId, nodeIds));
+}
+
+export function markProjectItemsDeleted(db: Db, nodeIds: string[]) {
+  return db.update(ghProjectItems).set({ deleted: true }).where(inJsonList(ghProjectItems.nodeId, nodeIds));
 }

@@ -2,7 +2,7 @@
  * Instance setup: create the GitHub App through GitHub's manifest flow, and confirm installations.
  * Only instance admins (INSTANCE_ADMIN_EMAILS) may run it (decision 019).
  */
-import { type Db, githubApp, githubInstallations, githubManifestStates } from "@gitwork/db";
+import { type Db, githubApp, githubInstallationTokens, githubInstallations, githubManifestStates } from "@gitwork/db";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { randomToken, sha256Hex } from "../crypto";
 import { ServiceError, conflict, forbidden } from "../errors";
@@ -145,6 +145,14 @@ export async function completeManifestFlow(
     throw conflict("app_exists", "A GitHub App is already set up for this instance.");
   }
   return { slug: app.slug, htmlUrl: app.html_url };
+}
+
+/**
+ * Forget the stored App (and its cached installation tokens) so setup can create a new one. For an
+ * App whose credentials can no longer be decrypted. The App itself stays on GitHub; delete it there.
+ */
+export async function removeGitHubApp(db: Db): Promise<void> {
+  await db.batch([db.delete(githubApp), db.delete(githubInstallationTokens)]);
 }
 
 /** Where an Owner/Admin goes to install the App on a GitHub org. */

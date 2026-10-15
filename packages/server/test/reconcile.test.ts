@@ -41,12 +41,23 @@ describe.each(drivers)("reconcile on $name", (driver: TestDriver) => {
   });
 
   it("asks only for changes since the last run, with a 2-minute overlap", async () => {
-    await run();
+    await run(); // started 12:00 → cursor 11:58
     ctx.fake.requests.length = 0;
     clock = new Date("2026-03-01T12:15:00Z");
     await run();
-    const list = ctx.fake.requests.find((r) => r.startsWith("GET /repos/acme/site/issues?"))!;
-    expect(new URL(`https://x${list.slice(4)}`).searchParams.get("since")).toBe("2026-03-01T11:58:00.000Z");
+    const list = ctx.fake.requests.find((r) => r.startsWith("GET /repos/acme/site/issues?") && r.includes("sort=updated"))!;
+    expect(new URL(`https://x${list.slice(4)}`).searchParams.get("since")).toBe("2026-03-01T11:57:59.000Z");
+  });
+
+  it("makes progress even when a whole page shares one updated_at second", async () => {
+    ctx.fake.pageSize = 2;
+    for (let n = 1; n <= 3; n++) ctx.fake.putIssue("acme/site", { number: n, updated_at: "2026-03-01T10:00:00Z" });
+    ctx.fake.putIssue("acme/site", { number: 4, updated_at: "2026-03-01T10:05:00Z" });
+    for (let i = 0; i < 6; i++) {
+      await run({ maxPages: 1 });
+      clock = new Date(clock.getTime() + 60_000);
+    }
+    expect((await issues()).map((i) => i.number).sort()).toEqual([1, 2, 3, 4]);
   });
 
   it("skips pull requests", async () => {
@@ -67,14 +78,31 @@ describe.each(drivers)("reconcile on $name", (driver: TestDriver) => {
     expect(rows.find((i) => i.number === 1)?.deleted).toBe(false);
   });
 
-  it("continues where it stopped when it runs out of pages", async () => {
+  it("finishes a repo larger than one run's budget over several runs, sweep included", async () => {
     ctx.fake.pageSize = 2;
     for (let n = 1; n <= 5; n++) ctx.fake.putIssue("acme/site", { number: n, updated_at: `2026-03-01T10:0${n}:00Z` });
-    await run({ maxPages: 1 }); // first run is a full sweep; it gets 2 of 5
+    await run({ maxPages: 1 });
     expect(await issues()).toHaveLength(2);
+    expect((await ctx.db.select().from(ghSyncTargets))[0]?.lastSyncedAt?.toISOString()).toBe("2026-03-01T10:02:00.000Z");
+    expect((await ctx.db.select().from(ghSyncTargets))[0]?.lastFullSyncAt).toBeNull();
+    for (let i = 0; i < 10; i++) {
+      clock = new Date(clock.getTime() + 60_000);
+      await run({ maxPages: 1 });
+    }
+    expect(await issues()).toHaveLength(5);
     const [target] = await ctx.db.select().from(ghSyncTargets);
-    expect(target?.lastSyncedAt?.toISOString()).toBe("2026-03-01T10:02:00.000Z");
-    expect(target?.lastFullSyncAt).toBeNull();
+    expect(target?.lastFullSyncAt).toBeInstanceOf(Date);
+    expect(target?.sweepStartedAt).toBeNull();
+  });
+
+  it("verifies before tombstoning: a live issue the sweep missed stays", async () => {
+    ctx.fake.putIssue("acme/site", { number: 1, updated_at: "2026-03-01T10:00:00Z" });
+    ctx.fake.putIssue("acme/site", { number: 2, updated_at: "2026-03-01T10:00:00Z" });
+    await run();
+    ctx.fake.hiddenFromLists.add("I_acme/site#2"); // a page shift hides it from the listing
+    clock = new Date("2026-03-02T13:00:00Z");
+    await run();
+    expect((await issues()).find((i) => i.number === 2)?.deleted).toBe(false);
   });
 
   it("marks the repo unavailable when GitHub returns 404", async () => {
@@ -85,6 +113,16 @@ describe.each(drivers)("reconcile on $name", (driver: TestDriver) => {
     ctx.fake.repos.delete("acme/site");
     await run();
     expect((await ctx.db.select().from(ghRepos))[0]?.available).toBe(false);
+  });
+
+  it("restores a hidden repo as soon as GitHub serves it again", async () => {
+    await ctx.db.insert(ghRepos).values({
+      nodeId: REPO.node_id, githubId: REPO.id, installationId: INSTALLATION.id, owner: "acme", name: "site",
+      fullName: "acme/site", private: true, htmlUrl: "https://github.com/acme/site", syncedAt: clock, available: false,
+    });
+    await ctx.db.update(ghSyncTargets).set({ lastSyncedAt: clock, lastFullSyncAt: clock });
+    await run();
+    expect((await ctx.db.select().from(ghRepos))[0]?.available).toBe(true);
   });
 
   it("stops at a rate limit and reports it", async () => {

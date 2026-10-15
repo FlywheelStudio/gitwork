@@ -21,6 +21,8 @@ export interface ApiDeps {
   box?: SecretBox;
   /** The App and a client for it; null until setup creates the App. */
   github?: { app: GitHubAppConfig; client: GitHubClient } | null;
+  /** Set when a stored App exists but cannot be decrypted. */
+  githubError?: "undecryptable" | null;
 }
 
 export interface Session {

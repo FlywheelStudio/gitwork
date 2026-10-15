@@ -17,8 +17,9 @@ export default async function Installed({ searchParams }: PageProps<"/github/ins
   const id = Number(installation_id);
   if (deps.github && Number.isInteger(id) && id > 0) {
     try {
-      const { accountLogin } = await confirmInstallation(deps.database.db, deps.github.client, id);
-      message = `Installed on ${accountLogin}. You can now connect its repos and boards to a workspace.`;
+      // The id comes from the URL, so do not echo which org it belongs to.
+      await confirmInstallation(deps.database.db, deps.github.client, id);
+      message = "Installation confirmed. You can now connect its repos and boards to a workspace.";
     } catch {
       message = "We could not confirm this installation with GitHub. If you just installed the App, try again in a minute.";
     }

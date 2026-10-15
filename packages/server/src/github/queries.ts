@@ -79,3 +79,17 @@ export interface ProjectPageResult {
     };
   } | null;
 }
+
+/** Confirms which cached nodes still exist (and where) before a sweep tombstones them. */
+export const VERIFY_NODES = `
+  query VerifyNodes($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Issue { id repository { id } }
+      ... on ProjectV2Item { id project { id } }
+    }
+  }
+`;
+
+export interface VerifyNodesResult {
+  nodes: ({ id: string; repository?: { id: string }; project?: { id: string } } | null)[];
+}

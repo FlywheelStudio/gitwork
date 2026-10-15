@@ -116,6 +116,21 @@ describe.each(drivers)("GitHub webhooks on $name", (driver: TestDriver) => {
       expect((await ctx.db.select().from(ghRepos))[0]?.available).toBe(false);
     });
 
+    it("does not bring back a removed repo when the installation is unsuspended", async () => {
+      const other = { ...REPO, node_id: "R_other", id: 502, name: "other", full_name: "acme/other" };
+      await deliver("installation", { action: "created", installation: INSTALLATION, repositories: [REPO, other] });
+      await deliver("installation_repositories", {
+        action: "removed",
+        installation: INSTALLATION,
+        repositories_added: [],
+        repositories_removed: [other],
+      });
+      await deliver("installation", { action: "suspend", installation: { ...INSTALLATION, suspended_at: "2026-02-01T00:00:00Z" } });
+      await deliver("installation", { action: "unsuspend", installation: INSTALLATION });
+      const rows = await ctx.db.select().from(ghRepos);
+      expect(rows.find((r) => r.nodeId === "R_other")?.available).toBe(false);
+    });
+
     it("hides everything and drops cached tokens when the installation is deleted", async () => {
       await deliver("installation", { action: "created", installation: INSTALLATION, repositories: [REPO] });
       await ctx.client.installationToken(INSTALLATION.id);

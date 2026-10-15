@@ -112,6 +112,15 @@ export class GitHubClient {
     return (res.status === 204 ? undefined : await res.json()) as T;
   }
 
+  /** One page of a list, and the URL of the next page (from the `Link` header). */
+  async page<T>(pathOrUrl: string, auth: Auth): Promise<{ items: T[]; next: string | null }> {
+    const res = await this.raw("GET", pathOrUrl, auth);
+    return {
+      items: (await res.json()) as T[],
+      next: /<([^>]+)>;\s*rel="next"/.exec(res.headers.get("link") ?? "")?.[1] ?? null,
+    };
+  }
+
   /** Follows `Link: rel="next"`, at most `maxPages` pages. `done` is false if pages remained. */
   async paginate<T>(path: string, auth: Auth, maxPages: number, onPage: (items: T[]) => Promise<void>): Promise<{ done: boolean }> {
     let url: string | null = path;
@@ -123,11 +132,21 @@ export class GitHubClient {
     return { done: url === null };
   }
 
-  async graphql<T>(installationId: number, query: string, variables: Record<string, unknown>): Promise<T> {
+  /**
+   * `allowNotFound`: `nodes(ids:)` reports deleted ids as NOT_FOUND errors next to `null` entries;
+   * that is an answer, not a failure.
+   */
+  async graphql<T>(
+    installationId: number,
+    query: string,
+    variables: Record<string, unknown>,
+    options: { allowNotFound?: boolean } = {},
+  ): Promise<T> {
     const res = await this.raw("POST", "/graphql", { installationId }, { query, variables });
     const out = (await res.json()) as { data?: T; errors?: { type?: string; message: string }[] };
     if (out.errors?.some((e) => e.type === "RATE_LIMITED")) throw new GitHubRateLimitError(this.now() + 60_000);
-    if (out.errors?.length) throw new GitHubError(200, `GitHub GraphQL error: ${out.errors[0]!.message}`, out.errors);
+    const errors = options.allowNotFound ? out.errors?.filter((e) => e.type !== "NOT_FOUND") : out.errors;
+    if (errors?.length) throw new GitHubError(200, `GitHub GraphQL error: ${errors[0]!.message}`, errors);
     return out.data as T;
   }
 }

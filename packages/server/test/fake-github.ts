@@ -19,6 +19,8 @@ export class FakeGitHub {
   /** Next response override, e.g. a rate limit or a 500. */
   failNext: { status: number; headers?: Record<string, string> } | null = null;
   pageSize = 100;
+  /** Issues that listing endpoints skip (simulates a page shift during a sweep). */
+  hiddenFromLists = new Set<string>();
 
   addRepo(fullName: string, nodeId: string, id: number) {
     const [owner, name] = fullName.split("/") as [string, string];
@@ -82,9 +84,11 @@ export class FakeGitHub {
     if ((m = /^\/repos\/([^/]+\/[^/]+)\/issues$/.exec(path))) {
       const since = url.searchParams.get("since");
       const page = Number(url.searchParams.get("page") ?? "1");
+      const sortKey = url.searchParams.get("sort") === "created" ? "created_at" : "updated_at";
       const all = [...(this.issues.get(m[1]!) ?? [])]
+        .filter((i) => !this.hiddenFromLists.has(i.node_id))
         .filter((i) => !since || i.updated_at > since)
-        .sort((a, b) => a.updated_at.localeCompare(b.updated_at));
+        .sort((a, b) => a[sortKey].localeCompare(b[sortKey]) || a.number - b.number);
       const slice = all.slice((page - 1) * this.pageSize, page * this.pageSize);
       const headers = new Headers();
       if (page * this.pageSize < all.length) {
@@ -120,6 +124,21 @@ export class FakeGitHub {
             },
           },
         });
+      }
+      if (query.includes("query VerifyNodes")) {
+        const ids = (variables as unknown as { ids: string[] }).ids;
+        const errors: { type: string; message: string }[] = [];
+        const nodes = ids.map((id) => {
+          for (const [fullName, list] of this.issues) {
+            if (list.some((i) => i.node_id === id)) return { id, repository: { id: this.repos.get(fullName)!.node_id } };
+          }
+          for (const p of this.projects.values()) {
+            if (p.items.some((i) => i.id === id)) return { id, project: { id: p.id } };
+          }
+          errors.push({ type: "NOT_FOUND", message: `Could not resolve to a node with the global id of '${id}'` });
+          return null;
+        });
+        return Response.json({ data: { nodes }, ...(errors.length ? { errors } : {}) });
       }
       if (query.includes("query ProjectItem")) {
         for (const p of this.projects.values()) {

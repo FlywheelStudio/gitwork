@@ -43,17 +43,27 @@ deliveries on its own.
 - Deletes and transfers are permanent tombstones (`deleted = 1`); nothing revives them.
 - `projects_v2_item` events are treated as "refetch this item" signals (the App availability of
   Projects webhooks is not documented clearly; reconcile covers them either way).
-- Removed repos, deleted or suspended installations set `available = 0`.
+- Removed repos, deleted or suspended installations set `available = 0`. Unsuspend does **not**
+  restore them all (that would undo earlier removals); reconcile re-checks each target.
 
-**Reconcile.** A lease row (`sync_leases`, 10 min) keeps runs single. Each run takes up to 5 sync
-targets, oldest first:
-- Repo: `GET /repos/{o}/{r}/issues?state=all&sort=updated&direction=asc&since=<last − 2 min>`,
-  pull requests dropped. Out of page budget → resume from the last processed `updated_at`.
-  Daily full sweep without `since`, then tombstone issues GitHub no longer lists. 404 → repo
-  unavailable.
-- Board: every item every run (Projects v2 has no `since`), **archived included**
-  (`archivedStates: [ARCHIVED, NOT_ARCHIVED]`), then tombstone items no longer listed.
+**Reconcile.** A lease row (`sync_leases`, 10 min) keeps runs single. Each run takes up to
+`RECONCILE_MAX_TARGETS` (default 3) targets, oldest first, with up to `RECONCILE_MAX_PAGES`
+(default 10) GitHub pages each. **Every page saves its progress**, so a run cut short by a Workers
+limit still moves forward.
+- Repo, incremental: `GET …/issues?state=all&sort=updated&direction=asc&since=<cursor − 1 s>`,
+  pull requests dropped. The cursor is the last issue's `updated_at` mid-pass, or our start time
+  minus 2 minutes (clock skew) after a complete pass. A page that makes no progress (a full page
+  in one second) steps the cursor forward; the daily sweep catches anything skipped.
+- Repo, daily deletion sweep (resumable): list by creation order with a saved page cursor, mark
+  each issue seen (`synced_at`), then **verify the unseen ones with GitHub** (`nodes(ids:)`) and
+  tombstone only those that are gone or moved. A page shift during the sweep can make it miss a
+  live issue; verification keeps it. The sweep always gets at least one page per run.
+- A repo marked unavailable is re-checked (`GET /repos`) every run.
+- Board: every item (Projects v2 has no `since`), cursor saved per page, **archived included**
+  (`archivedStates: [ARCHIVED, NOT_ARCHIVED]`), then the same verify-then-tombstone step.
 - Rate limit → stop the run, report `rateLimited`.
+- Each scheduled run also prunes deliveries older than 14 days, expired setup states, and
+  rate-limit rows older than a day, and records `reconcile_last_run`.
 
 **Sync targets** (`gh_sync_targets`) decide what reconcile covers. Phase 3 creates them when a
 workspace links a board and repos.
@@ -86,14 +96,24 @@ workspace links a board and repos.
   `/setup` is 404.
 - `pnpm smoke` (Worker): bundle scans of `.open-next` **and** the final `wrangler deploy --dry-run`
   output; signed `ping` 200 / bad signature 401; the Cron Trigger completes a reconcile.
-- Proven red: replacing the timestamp guard with `1 = 1`.
+- Proven red: replacing the timestamp guard with `1 = 1`. Multi-run tests: a repo larger than one
+  run's budget completes over several runs (sweep included); a page of same-second issues still
+  progresses; a live issue the sweep missed is kept after verification. Secret rotation keeps
+  sign-in working and allows an admin replace. Unsuspend keeps removed repos hidden.
 
 ## Gotchas
 - **GitHub must reach the webhook URL.** For local development use a tunnel (e.g.
   `cloudflared tunnel --url http://localhost:3000`) and set `BETTER_AUTH_URL` to it *before*
   creating the App: the manifest bakes in the URLs.
-- **Rotating `BETTER_AUTH_SECRET`** makes the stored App credentials unreadable (re-run setup) and
-  every linked GitHub token unreadable (users re-link).
+- **Rotating `BETTER_AUTH_SECRET`** makes the stored App credentials and linked GitHub tokens
+  unreadable. Sign-in keeps working (`createRequestDeps()` treats GitHub as not set up and sets
+  `githubError`); `/setup` shows the error and offers "Forget the stored App and start over".
+  Users re-link GitHub.
+- **Workers query limits are unverified.** Cloudflare's docs do not say whether a D1 `batch()`
+  counts as one query or one per statement toward the per-invocation limit (50 Free / 1000 Paid).
+  The defaults assume the Paid plan; on Free, lower `RECONCILE_MAX_PAGES`. Measure on a real deploy.
+- **Never tested against real GitHub.** The manifest flow, App availability of `projects_v2*`
+  webhooks, and real payload shapes are covered only by docs and the fake. See STATE.
 - **Two concurrent refreshes of one user token can lock the user out** (GitHub invalidates the old
   refresh token). Phase 3 must serialize user-token use per user.
 - **Projects v2 lists only non-archived items by default.** The sweep would tombstone archived

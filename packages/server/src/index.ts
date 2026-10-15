@@ -45,6 +45,8 @@ export {
   installUrl,
   isInstanceAdmin,
   parseAdminEmails,
+  removeGitHubApp,
   startManifestFlow,
 } from "./github/setup";
 export { handleGitHubWebhook } from "./github/webhooks";
+export { type RequestDepsInput, createRequestDeps } from "./deps";

@@ -1,8 +1,8 @@
-import { ghIssues, ghSyncTargets, instanceSettings } from "@gitwork/db";
+import { ghIssues, ghSyncTargets, githubWebhookDeliveries, instanceSettings, rateLimits } from "@gitwork/db";
 import { sqliteTestDriver } from "@gitwork/db/testing";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { runScheduledReconcile } from "../src/sync";
+import { prune, runScheduledReconcile } from "../src/sync";
 import { FakeGitHub } from "./fake-github";
 import { APP, INSTALLATION, REPO } from "./github-helpers";
 
@@ -43,5 +43,23 @@ describe("runScheduledReconcile", () => {
     await database.db.insert(ghSyncTargets).values({ kind: "repo", nodeId: REPO.node_id, installationId: 1, locator: "acme/site" });
     const failed = await runScheduledReconcile(database, { ...ENV, GITHUB_APP_PRIVATE_KEY: "not a key" }, "h", new FakeGitHub().fetch);
     expect(failed).toMatchObject({ status: "done", failed: 1 });
+  });
+});
+
+describe("prune", () => {
+  it("drops old deliveries and rate-limit rows, keeps recent ones", async () => {
+    const database = await sqliteTestDriver().fresh();
+    const now = Date.now();
+    await database.db.insert(githubWebhookDeliveries).values([
+      { deliveryId: "old", event: "ping", receivedAt: new Date(now - 15 * 86_400_000) },
+      { deliveryId: "new", event: "ping", receivedAt: new Date(now - 86_400_000) },
+    ]);
+    await database.db.insert(rateLimits).values([
+      { id: "1", key: "old", count: 1, lastRequest: now - 2 * 86_400_000 },
+      { id: "2", key: "new", count: 1, lastRequest: now },
+    ]);
+    await prune(database, now);
+    expect((await database.db.select().from(githubWebhookDeliveries)).map((d) => d.deliveryId)).toEqual(["new"]);
+    expect((await database.db.select().from(rateLimits)).map((r) => r.key)).toEqual(["new"]);
   });
 });

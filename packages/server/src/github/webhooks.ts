@@ -103,7 +103,9 @@ async function planWrites(event: string, p: Payload, deps: WebhookDeps): Promise
         ];
       }
       if (p.action === "suspend") return [upsert, ...setInstallationAvailable(db, inst.id, false)];
-      if (p.action === "unsuspend") return [upsert, ...setInstallationAvailable(db, inst.id, true)];
+      // Unsuspend: do NOT mark every repo available again — some were removed while suspended or
+      // before. Reconcile re-checks each sync target with GitHub (GET /repos) and restores those.
+      if (p.action === "unsuspend") return [upsert];
       return [upsert, ...((p.repositories ?? []) as RepoJson[]).map((r) => upsertRepo(db, inst.id, r, now))];
     }
 

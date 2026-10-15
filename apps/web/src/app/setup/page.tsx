@@ -5,6 +5,7 @@ import { Card } from "@/components/ui";
 import { getDeps, isAdmin } from "@/server/context";
 import { requireUser } from "@/server/pages";
 import { CreateAppForm } from "./create-app-form";
+import { ReplaceAppButton } from "./replace-app-button";
 import { SignupPolicy } from "./signup-policy";
 
 const ERRORS: Record<string, string> = {
@@ -35,7 +36,15 @@ export default async function SetupPage({ searchParams }: PageProps<"/setup">) {
 
         <Card>
           <h2 className="mb-1 font-medium">2. GitHub App</h2>
-          {app ? (
+          {deps.githubError === "undecryptable" ? (
+            <div className="space-y-3 text-sm">
+              <p role="alert" className="text-red-600">
+                The stored GitHub App credentials cannot be decrypted. BETTER_AUTH_SECRET probably changed. Replace the App
+                here, then delete the old one on GitHub.
+              </p>
+              <ReplaceAppButton />
+            </div>
+          ) : app ? (
             <p className="text-sm">
               Connected:{" "}
               <a className="underline" href={app.htmlUrl || `https://github.com/apps/${app.slug}`}>

@@ -355,8 +355,13 @@ export const ghSyncTargets = sqliteTable(
     installationId: integer("installation_id").notNull(),
     /** Repo: "owner/name". Project: "owner#number". */
     locator: text("locator").notNull(),
+    /** Incremental cursor: GitHub `updated_at` reached so far (repos) or last full listing (boards). */
     lastSyncedAt: integer("last_synced_at", { mode: "timestamp_ms" }),
+    /** When the last deletion sweep finished. */
     lastFullSyncAt: integer("last_full_sync_at", { mode: "timestamp_ms" }),
+    /** A deletion sweep in progress: when it started, and where to continue (page URL or cursor). */
+    sweepStartedAt: integer("sweep_started_at", { mode: "timestamp_ms" }),
+    sweepCursor: text("sweep_cursor"),
   },
   (t) => [
     primaryKey({ columns: [t.kind, t.nodeId] }),

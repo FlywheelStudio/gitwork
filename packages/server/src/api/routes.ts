@@ -14,7 +14,7 @@ import {
 } from "../services/invites";
 import { changeMemberRole, listMembers, removeMember } from "../services/members";
 import { getSignupPolicy, setSignupPolicy } from "../instance-settings";
-import { installUrl, isInstanceAdmin, startManifestFlow } from "../github/setup";
+import { installUrl, isInstanceAdmin, removeGitHubApp, startManifestFlow } from "../github/setup";
 import { forbidden } from "../errors";
 import { type RouteContext, createApiHandler, route } from "./router";
 
@@ -174,7 +174,9 @@ routes.push(
       requireInstanceAdmin(ctx);
       const app = ctx.deps.github?.app;
       return {
-        github: app ? { configured: true, slug: app.slug, htmlUrl: app.htmlUrl, source: app.source } : { configured: false },
+        github: app
+          ? { configured: true, slug: app.slug, htmlUrl: app.htmlUrl, source: app.source }
+          : { configured: false, error: ctx.deps.githubError ?? null },
         signups: await getSignupPolicy(ctx.deps.database.db),
       };
     },
@@ -186,6 +188,15 @@ routes.push(
     async handler(ctx) {
       requireInstanceAdmin(ctx);
       return startManifestFlow(ctx.deps.database.db, { userId: ctx.session!.user.id, baseURL: ctx.deps.baseURL, ...ctx.body });
+    },
+  }),
+  route({
+    method: "DELETE",
+    pattern: "/setup/github",
+    async handler(ctx) {
+      requireInstanceAdmin(ctx);
+      if (ctx.deps.github?.app.source === "env") throw forbidden("env_app", "This App comes from environment variables.");
+      await removeGitHubApp(ctx.deps.database.db);
     },
   }),
   route({

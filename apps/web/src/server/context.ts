@@ -1,13 +1,5 @@
 import "server-only";
-import {
-  type ApiDeps,
-  GitHubClient,
-  createAuth,
-  createSecretBox,
-  isInstanceAdmin,
-  loadGitHubAppConfig,
-  parseAdminEmails,
-} from "@gitwork/server";
+import { createRequestDeps, isInstanceAdmin, parseAdminEmails } from "@gitwork/server";
 import { headers } from "next/headers";
 import { DEFAULT_TRUSTED_IP_HEADER, getDatabase, getEmailSender, getEnv } from "./runtime";
 
@@ -27,21 +19,17 @@ export function getConfig() {
 }
 
 /** Everything a request needs. Built per request: D1 bindings are per request. */
-export async function getDeps(): Promise<ApiDeps> {
+export async function getDeps() {
   const { env, secret, baseURL, trustedIpHeader, instanceAdminEmails } = getConfig();
-  const database = getDatabase();
-  const email = getEmailSender();
-  const box = await createSecretBox(secret);
-  const app = await loadGitHubAppConfig(database.db, box, env);
-  const github = app ? { app, client: new GitHubClient({ db: database.db, box, app }) } : null;
-  // Linking GitHub uses the App's OAuth credentials; plain client id/secret env vars also work.
-  const oauth = app
-    ? { clientId: app.clientId, clientSecret: app.clientSecret }
-    : env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
-      ? { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET }
-      : undefined;
-  const auth = createAuth({ database, email, secret, baseURL, github: oauth, trustedIpHeader, instanceAdminEmails });
-  return { database, auth, email, baseURL, instanceAdminEmails, box, github };
+  return createRequestDeps({
+    database: getDatabase(),
+    env,
+    email: getEmailSender(),
+    secret,
+    baseURL,
+    trustedIpHeader,
+    instanceAdminEmails,
+  });
 }
 
 export async function getSession() {
