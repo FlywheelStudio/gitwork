@@ -95,3 +95,13 @@ None.
 ## Build log
 - 2026-10-15: Owner decisions: GitHub gate covers GitHub tasks only; sign-up policy is an instance
   setting. Better Auth 1.7.8 (1.7.9+ under the age policy).
+- Permission core done: 78 tests over a hand-written copy of the matrix; one flipped cell turns
+  the suite red.
+- Better Auth's Drizzle adapter calls `db.transaction()` only on MySQL paths; SQLite uses single
+  `DELETE … RETURNING` statements. Sign-in passes on D1 and libsql through `auth.handler`.
+- Rate limits use `storage: "database"` (`rate_limits` table). Code storage is hashed. Switching
+  either back (memory / plain) fails the suite.
+- Schema CHECKs: role enum on `workspace_members` and `invites`, lowercase `invites.email`. Drizzle
+  text enums are TypeScript-only; SQLite needs the CHECK.
+- Test helpers moved to `@gitwork/db/testing` (`allTestDrivers()` → libsql + D1).
+- New package `@gitwork/server`: auth factory, email adapters, sign-up rule, services.

@@ -1,33 +1,18 @@
-import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { getPlatformProxy } from "wrangler";
-import { openD1 } from "../src/d1";
+import { type TestDriver, d1TestDriver } from "../src/testing";
 import type { Database } from "../src/types";
-import { databaseContract } from "./contract";
-import { applyMigrationsToD1 } from "./migrations";
-
-type Env = { DB: D1Database };
+import { constraintContract, databaseContract } from "./contract";
 
 describe("D1 driver (workerd via wrangler)", () => {
-  let proxy: Awaited<ReturnType<typeof getPlatformProxy<Env>>>;
+  let driver: TestDriver;
   let database: Database;
 
   beforeAll(async () => {
-    proxy = await getPlatformProxy<Env>({
-      configPath: fileURLToPath(new URL("./wrangler.test.jsonc", import.meta.url)),
-      persist: false,
-    });
+    driver = await d1TestDriver();
   });
-
-  afterAll(async () => {
-    await proxy?.dispose();
-  });
-
+  afterAll(() => driver?.dispose());
   beforeEach(async () => {
-    const binding = proxy.env.DB;
-    await binding.exec("DROP TABLE IF EXISTS instance_settings");
-    await applyMigrationsToD1(binding);
-    database = openD1(binding);
+    database = await driver.fresh();
   });
 
   it("runs on a real D1 binding, not a SQLite fallback", async () => {
@@ -40,4 +25,5 @@ describe("D1 driver (workerd via wrangler)", () => {
   });
 
   databaseContract(() => database);
+  constraintContract(() => database);
 });

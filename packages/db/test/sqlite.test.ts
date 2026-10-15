@@ -1,15 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { migrateSqlite } from "../src/migrate";
-import { openSqlite } from "../src/node";
+import { sqliteTestDriver } from "../src/testing";
 import type { Database } from "../src/types";
-import { databaseContract } from "./contract";
+import { constraintContract, databaseContract } from "./contract";
 
 describe("SQLite file driver (libsql)", () => {
   let database: Database;
 
   beforeEach(async () => {
-    database = openSqlite(":memory:");
-    await migrateSqlite(database);
+    database = await sqliteTestDriver().fresh();
   });
 
   it("reports the sqlite driver", () => {
@@ -17,4 +15,5 @@ describe("SQLite file driver (libsql)", () => {
   });
 
   databaseContract(() => database);
+  constraintContract(() => database);
 });

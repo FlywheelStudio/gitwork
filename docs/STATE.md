@@ -6,7 +6,7 @@ Last updated: 2026-10-15
 
 | Feature | Step | Blockers | WIP doc |
 |---|---|---|---|
-| Phase 1 — Identity | Permission core | None | [wip/identity.md](wip/identity.md) |
+| Phase 1 — Identity | Domain services | None | [wip/identity.md](wip/identity.md) |
 
 Resolved 2026-10-15: draft items hidden from Read Only by default (006); private convention
 import moved to `CLAUDE.local.md`; third-party skills kept out of git.
