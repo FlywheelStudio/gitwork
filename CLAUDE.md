@@ -36,15 +36,21 @@ pnpm db:migrate     # apply migrations to the local SQLite file
 ```
 apps/web        Next.js app, /api/v1 REST API, GitHub webhooks
 apps/mac        Native macOS app (AppKit + TextKit 2) — Phase 6, not created yet
-packages/core   Permissions, visibility filter, GitHub sync, attribution, markdown round trip
-packages/db     Drizzle schema + migrations (SQLite dialect), D1 and file drivers
+packages/core   Pure domain logic: role matrix (permissions.ts); later visibility, attribution, markdown
+packages/server DB- and auth-aware code: Better Auth factory, services, /api/v1 router, email
+packages/db     Drizzle schema + migrations (SQLite dialect), D1 and file drivers, test helpers
 docs/           INDEX.md → STATE.md → spec.md, decisions/
 ```
 
 ## Rules
 
 - Every read and write goes through the permission and visibility checks in `packages/core`. Never
-  return GitHub data to a client without them.
+  return GitHub data to a client without them. Services load access with
+  `requireWorkspaceAccess()` and call `requireCapability()`.
+- New `/api/v1` routes go in `packages/server/src/api/routes.ts`, with tests in
+  `packages/server/test/api.test.ts` (success, 401, 403, 400).
+- DB tests run on both drivers: `describe.each(await allTestDrivers())` from `@gitwork/db/testing`.
+- Pages read the request (`getSession()`/`connection()`) before any config, or `next build` fails.
 - Webhook handlers verify the signature and are idempotent on the delivery ID.
 - The markdown editors must leave untouched lines byte-identical. The round-trip fixture suite
   guards this; never weaken it.

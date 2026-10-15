@@ -43,8 +43,8 @@ them with `pnpm db:migrate` (runs before `pnpm dev`). Cloudflare applies the sam
   It calls `scripts/scan-worker-bundle.sh`, which fails on libsql code or a `.node` file in the
   Worker bundle. Each check was proven to fail: a wrong-target build (24 libsql hits), probe
   directories with libsql code and with a `.node` file, and a held port.
-- CI (`.github/workflows/ci.yml`) runs all of the above. **Not yet run on GitHub: the repo has no
-  remote.** The full workflow sequence passes in a fresh local clone (2026-10-15).
+- CI (`.github/workflows/ci.yml`) runs all of the above. It passed on PR #1
+  (FlywheelStudio/gitwork, 2026-10-15).
 
 ## Gotchas
 - **`cacheComponents` hangs every request under workerd** (its `setTimeout` dependency). Keep it off.

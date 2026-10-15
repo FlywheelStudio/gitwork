@@ -1,4 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Web-standard globals (URL, crypto) that both Node and Workers provide. No Node types:
+    // core must stay runtime-neutral.
+    "lib": ["ES2023", "DOM"]
+  },
   "include": ["src"]
 }

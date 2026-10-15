@@ -19,12 +19,15 @@
   "dependencies": {
     "@gitwork/core": "workspace:*",
     "@gitwork/db": "workspace:*",
+    "@gitwork/server": "workspace:*",
     "@opennextjs/cloudflare": "1.20.11",
+    "better-auth": "1.7.8",
     "drizzle-orm": "0.45.4",
     "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

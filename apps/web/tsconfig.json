@@ -26,8 +26,8 @@
       "@/*": [
         "./src/*"
       ],
-      "@gitwork/db-runtime": [
-        "./src/server/db/runtime.node.ts"
+      "@gitwork/runtime": [
+        "./src/server/runtime/runtime.node.ts"
       ]
     },
     "types": [

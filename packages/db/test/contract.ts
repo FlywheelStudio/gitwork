@@ -37,3 +37,21 @@ export function databaseContract(getDatabase: () => Database) {
     expect(rows).toHaveLength(0);
   });
 }
+
+/** Schema constraints that SQLite only enforces when written as CHECKs. */
+export function constraintContract(getDatabase: () => Database) {
+  it("rejects an unknown role and an uppercase invite email", async () => {
+    const { db } = getDatabase();
+    const { accounts, workspaces, invites } = await import("../src/schema");
+    await db.insert(accounts).values({ id: "a1", name: "Acme" });
+    await db.insert(workspaces).values({ id: "w1", accountId: "a1", name: "Site" });
+    const base = { workspaceId: "w1", expiresAt: new Date(Date.now() + 1000) };
+    await expect(
+      db.insert(invites).values({ ...base, id: "i1", email: "x@y.z", role: "superuser" as "owner", tokenHash: "h1" }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(invites).values({ ...base, id: "i2", email: "X@Y.Z", role: "member", tokenHash: "h2" }),
+    ).rejects.toThrow();
+    await db.insert(invites).values({ ...base, id: "i3", email: "x@y.z", role: "member", tokenHash: "h3" });
+  });
+}
