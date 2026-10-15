@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-test("home page shows the product name", async ({ page }) => {
+test("home redirects to sign-in when signed out", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Gitwork");
+  await expect(page).toHaveURL(/\/sign-in\?next=%2F$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in to Gitwork");
 });
 
 test("health endpoint reports the SQLite driver", async ({ request }) => {

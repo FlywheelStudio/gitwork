@@ -1,7 +1,7 @@
 import { APP_NAME } from "@gitwork/core";
 import { instanceSettings } from "@gitwork/db";
 import { count } from "drizzle-orm";
-import { getDatabase } from "@/server/db";
+import { getDatabase } from "@/server/runtime";
 
 /** Liveness plus a database round trip. Reports which driver served the request. */
 export async function GET() {

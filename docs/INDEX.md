@@ -27,14 +27,9 @@
 | 016 | [libsql on Node, batch-only atomic writes, build-time driver split](decisions/016-db-driver-and-atomic-writes.md) |
 | 017 | [Identity: Better Auth for identity only; GitHub gate; sign-up policy](decisions/017-identity.md) |
 
-## Work in progress
-
-| Doc | Description |
-|---|---|
-| [wip/identity.md](wip/identity.md) | Phase 1: sign-in, accounts, workspaces, roles, invites, GitHub link. |
-
 ## Features
 
 | Doc | Description |
 |---|---|
 | [features/scaffold.md](features/scaffold.md) | Monorepo, D1 + libsql behind one `Db` type, build-time driver split, tests, CI. |
+| [features/identity.md](features/identity.md) | Email-code sign-in, accounts, workspaces, roles, invites, GitHub link, `/api/v1`. |

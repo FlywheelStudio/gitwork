@@ -17,6 +17,13 @@
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
+  // Cloudflare Email Service for sign-in codes and invites.
+  "send_email": [{ "name": "EMAIL" }],
+  "vars": {
+    "EMAIL_TRANSPORT": "cloudflare",
+    // Must use a domain onboarded to Cloudflare Email Service.
+    "EMAIL_FROM": "Gitwork <no-reply@example.com>"
+  },
   "services": [
     {
       // Self-reference binding. The service name must match the worker name.
