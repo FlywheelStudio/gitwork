@@ -11,7 +11,7 @@ function toB64Url(bytes: Uint8Array): string {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function fromB64Url(value: string): Uint8Array {
+function fromB64Url(value: string): Uint8Array<ArrayBuffer> {
   const b64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
   const s = atob(b64);
   const out = new Uint8Array(s.length);
@@ -104,7 +104,7 @@ function derLength(n: number): number[] {
   return [0x80 | bytes.length, ...bytes];
 }
 
-function der(tag: number, content: Uint8Array): Uint8Array {
+function der(tag: number, content: Uint8Array): Uint8Array<ArrayBuffer> {
   const len = derLength(content.length);
   const out = new Uint8Array(1 + len.length + content.length);
   out[0] = tag;
@@ -113,7 +113,7 @@ function der(tag: number, content: Uint8Array): Uint8Array {
   return out;
 }
 
-function concat(...parts: Uint8Array[]): Uint8Array {
+function concat(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let o = 0;
   for (const p of parts) {
@@ -126,12 +126,12 @@ function concat(...parts: Uint8Array[]): Uint8Array {
 // AlgorithmIdentifier { rsaEncryption (1.2.840.113549.1.1.1), NULL }
 const RSA_ALGORITHM_ID = new Uint8Array([0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00]);
 
-function pkcs1ToPkcs8(pkcs1: Uint8Array): Uint8Array {
+function pkcs1ToPkcs8(pkcs1: Uint8Array): Uint8Array<ArrayBuffer> {
   const version = new Uint8Array([0x02, 0x01, 0x00]);
   return der(0x30, concat(version, RSA_ALGORITHM_ID, der(0x04, pkcs1)));
 }
 
-function pemBody(pem: string): Uint8Array {
+function pemBody(pem: string): Uint8Array<ArrayBuffer> {
   const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
   const s = atob(b64);
   const out = new Uint8Array(s.length);

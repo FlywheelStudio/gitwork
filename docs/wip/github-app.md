@@ -84,3 +84,19 @@ refresh token.
 
 ## Build log
 - 2026-10-15: Branch created. Decision 018 (member list visible to all members) recorded.
+- Spikes passed: custom Worker entry (`apps/web/worker.ts`) runs a `scheduled` handler on the
+  local preview; the crypto module passes the same tests on Node and inside workerd
+  (`unstable_startWorker`; `@cloudflare/vitest-pool-workers` needs Vitest 4).
+- GitHub facts (research 2026-10-15): redelivery reuses `X-GitHub-Delivery`; GitHub never retries
+  failed deliveries on its own (reconcile is the only safety net); 10 s timeout. `projects_v2_item`
+  payloads carry `updated_at` and field `changes`, but the App availability of Projects webhooks is
+  unverified — items are treated as "refetch" signals. Projects v2 GraphQL lists only
+  `NOT_ARCHIVED` items by default: the query asks for both, or the sweep would tombstone archived
+  items. Manifest permission for emails is `email_addresses`.
+- Webhooks: delivery row + guarded writes in one batch. Ties on `updated_at` refetch from GitHub.
+  Deletes are permanent tombstones. Replacing the timestamp guard with `1 = 1` fails the ordering
+  and tombstone tests on both drivers.
+- Reconcile: lease row, bounded targets/pages, `since` with 2-minute overlap, daily full sweep
+  that tombstones unseen issues; projects list every item each run. Lists go to SQL as one
+  `json_each(?)` parameter (D1's 100-parameter cap).
+- Installation tokens shared via `github_installation_tokens` (sealed), renewed 5 minutes early.
