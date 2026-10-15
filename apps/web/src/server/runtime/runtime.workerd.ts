@@ -9,6 +9,9 @@ export function getDatabase(): Database {
   return openD1(getCloudflareContext().env.DB);
 }
 
+/** Cloudflare sets this header on every request; clients cannot forge it. */
+export const DEFAULT_TRUSTED_IP_HEADER: string | undefined = "cf-connecting-ip";
+
 export function getEnv(): Record<string, string | undefined> {
   return getCloudflareContext().env as unknown as Record<string, string | undefined>;
 }

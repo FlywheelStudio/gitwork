@@ -1,7 +1,7 @@
 /** A failure a route can turn into an HTTP status. Messages are safe to show to the user. */
 export class ServiceError extends Error {
   constructor(
-    readonly status: 400 | 401 | 403 | 404 | 409 | 410,
+    readonly status: 400 | 401 | 403 | 404 | 409 | 410 | 429,
     readonly code: string,
     message: string,
   ) {

@@ -4,9 +4,11 @@ import { memorySender } from "../src/email";
 
 export const BASE_URL = "http://localhost:3000";
 
-export function testAuth(database: Database) {
+/** Workers-style config: Cloudflare sets `cf-connecting-ip`, so it is the trusted IP header. */
+export function testAuth(database: Database, options: { trustedIpHeader?: string | null } = {}) {
   const email = memorySender();
-  const auth = createAuth({ database, secret: "test-secret-test-secret-test-secret-32", baseURL: BASE_URL, email });
+  const trustedIpHeader = options.trustedIpHeader === null ? undefined : (options.trustedIpHeader ?? "cf-connecting-ip");
+  const auth = createAuth({ database, secret: "test-secret-test-secret-test-secret-32", baseURL: BASE_URL, email, trustedIpHeader });
   return { auth, email };
 }
 
@@ -14,9 +16,11 @@ export function testAuth(database: Database) {
 export function authRequest(
   auth: ReturnType<typeof createAuth>,
   path: string,
-  init: { body?: unknown; cookie?: string; ip?: string; method?: string } = {},
+  init: { body?: unknown; cookie?: string; ip?: string | null; forwardedFor?: string; method?: string } = {},
 ): Promise<Response> {
-  const headers = new Headers({ origin: BASE_URL, "x-forwarded-for": init.ip ?? "203.0.113.7" });
+  const headers = new Headers({ origin: BASE_URL });
+  if (init.ip !== null) headers.set("cf-connecting-ip", init.ip ?? "203.0.113.7");
+  if (init.forwardedFor) headers.set("x-forwarded-for", init.forwardedFor);
   if (init.body !== undefined) headers.set("content-type", "application/json");
   if (init.cookie) headers.set("cookie", init.cookie);
   return auth.handler(

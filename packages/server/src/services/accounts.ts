@@ -1,6 +1,6 @@
 import type { Role } from "@gitwork/core";
 import { type Db, accountOwners, accounts, workspaceMembers, workspaces } from "@gitwork/db";
-import { eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { newId } from "../crypto";
 import { badRequest, forbidden } from "../errors";
 import { getSignupPolicy } from "../instance-settings";
@@ -64,27 +64,30 @@ export interface WorkspaceSummary {
   role: Role;
 }
 
-/** Every workspace the user can open, with their effective role. */
+/**
+ * Every workspace the user can open, with their effective role. Subqueries, not IN-lists: D1
+ * allows at most 100 bound parameters per query, and an agency user can be in more workspaces.
+ */
 export async function listMyWorkspaces(db: Db, userId: string): Promise<WorkspaceSummary[]> {
-  const [owned, memberships] = await Promise.all([
-    db.select({ accountId: accountOwners.accountId }).from(accountOwners).where(eq(accountOwners.userId, userId)),
-    db
-      .select({ workspaceId: workspaceMembers.workspaceId, role: workspaceMembers.role })
-      .from(workspaceMembers)
-      .where(eq(workspaceMembers.userId, userId)),
-  ]);
-  const ownedAccounts = new Set(owned.map((o) => o.accountId));
-  const memberRole = new Map(memberships.map((m) => [m.workspaceId, m.role]));
-  const conditions = [];
-  if (ownedAccounts.size > 0) conditions.push(inArray(workspaces.accountId, [...ownedAccounts]));
-  if (memberRole.size > 0) conditions.push(inArray(workspaces.id, [...memberRole.keys()]));
-  if (conditions.length === 0) return [];
+  const ownedAccountIds = db.select({ id: accountOwners.accountId }).from(accountOwners).where(eq(accountOwners.userId, userId));
+  const memberWorkspaceIds = db
+    .select({ id: workspaceMembers.workspaceId })
+    .from(workspaceMembers)
+    .where(eq(workspaceMembers.userId, userId));
   const rows = await db
-    .select({ id: workspaces.id, name: workspaces.name, accountId: workspaces.accountId, accountName: accounts.name })
+    .select({
+      id: workspaces.id,
+      name: workspaces.name,
+      accountId: workspaces.accountId,
+      accountName: accounts.name,
+      memberRole: workspaceMembers.role,
+      isOwner: sql<number>`${workspaces.accountId} IN ${ownedAccountIds}`,
+    })
     .from(workspaces)
     .innerJoin(accounts, eq(accounts.id, workspaces.accountId))
-    .where(or(...conditions));
+    .leftJoin(workspaceMembers, and(eq(workspaceMembers.workspaceId, workspaces.id), eq(workspaceMembers.userId, userId)))
+    .where(or(inArray(workspaces.accountId, ownedAccountIds), inArray(workspaces.id, memberWorkspaceIds)));
   return rows
-    .map((w) => ({ ...w, role: (ownedAccounts.has(w.accountId) ? "owner" : memberRole.get(w.id)!) as Role }))
+    .map(({ memberRole, isOwner, ...w }) => ({ ...w, role: (isOwner ? "owner" : memberRole) as Role }))
     .sort((a, b) => a.accountName.localeCompare(b.accountName) || a.name.localeCompare(b.name));
 }

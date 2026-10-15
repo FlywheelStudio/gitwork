@@ -12,6 +12,9 @@ export function getDatabase(): Database {
   return database;
 }
 
+/** Node hosts get no client IP from infrastructure unless a proxy sets TRUSTED_IP_HEADER. */
+export const DEFAULT_TRUSTED_IP_HEADER: string | undefined = undefined;
+
 export function getEnv(): Record<string, string | undefined> {
   return process.env;
 }

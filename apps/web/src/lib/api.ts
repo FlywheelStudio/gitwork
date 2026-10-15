@@ -1,4 +1,5 @@
 "use client";
+import { safeRedirectPath } from "@gitwork/core";
 
 /** Calls /api/v1 from the browser. Throws an Error with the API's message on failure. */
 export async function api<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
@@ -15,5 +16,5 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
 
 /** Only same-site paths, so `?next=` cannot redirect off-site. */
 export function safeNext(value: string | null): string {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
+  return safeRedirectPath(value, window.location.origin);
 }

@@ -4,6 +4,7 @@ import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { newId, randomToken, sha256Hex } from "../crypto";
 import type { EmailMessage } from "../email";
 import { ServiceError, badRequest, conflict, forbidden, notFound } from "../errors";
+import { INVITES_PER_USER, hitLimit } from "../limits";
 import { type WorkspaceAccess, requireCapability } from "./access";
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,6 +40,9 @@ export async function createInvite(
     .where(and(eq(users.email, email), eq(workspaceMembers.workspaceId, access.workspace.id)))
     .limit(1);
   if (existing) throw conflict("already_member", "That person is already a member.");
+  if (!(await hitLimit(db, `invites:${access.userId}`, INVITES_PER_USER, now.getTime()))) {
+    throw new ServiceError(429, "rate_limited", "Too many invites sent. Try again later.");
+  }
 
   const token = randomToken();
   const inviteId = newId();

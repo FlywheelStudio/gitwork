@@ -8,7 +8,7 @@ Shipped 2026-10-15 (Phase 1). Branch `feature/identity`. Decisions 005, 006, 007
 - A signed-in user creates an **Account** and its first **workspace**. Account Owners add more
   workspaces.
 - Owners and Admins invite people by email with a role. The invitee signs in as that email and
-  accepts.
+  accepts. Each user can send 30 invites per hour, so an open instance cannot relay spam.
 - Owners and Admins change roles and remove members within the role matrix. Anyone can leave.
 - Users link a GitHub account in Settings (needed only for GitHub tasks, decision 017).
 
@@ -31,8 +31,12 @@ Shipped 2026-10-15 (Phase 1). Branch `feature/identity`. Decisions 005, 006, 007
 **Sign-in.** Better Auth `emailOTP`: 6 digits, 10-minute expiry, 5 attempts, stored hashed. The
 email link is `/sign-in/verify#email=…&code=…`: the code is in the fragment (never sent to the
 server) and the page POSTs only on a click, because email link scanners load links. Rate limits
-live in `rate_limits` (5 code requests per 5 minutes per IP), since Worker isolates share no
-memory. Client IP comes from `cf-connecting-ip` or `x-forwarded-for`.
+live in `rate_limits`, since Worker isolates share no memory:
+- **Per email:** 5 codes per 15 minutes (`hitLimit()`, one atomic upsert). Applies everywhere.
+- **Per IP:** 5 code requests per 5 minutes, only when a trusted IP header exists:
+  `cf-connecting-ip` on Workers, or `TRUSTED_IP_HEADER` on a Node host behind a proxy. With no
+  trusted header, per-IP limits are off: `x-forwarded-for` is forgeable, and Better Auth's fallback
+  is one bucket for the whole instance, which would lock everyone out.
 
 **Sign-up policy.** `instance_settings.signups` = `open` (default) or `invite-only`. A
 `user.create.before` hook allows a new user when sign-ups are open or a valid invite exists for the
@@ -54,7 +58,8 @@ create an Account.
 | `invites` | email (CHECK lowercase), role (CHECK), `token_hash` (SHA-256), `expires_at` (7 days), `accepted_at/by`, `revoked_at`. |
 
 Access is checked in code on every request (no row-level security in SQLite). No access and no
-workspace both return 404.
+workspace both return 404. Queries over a user's memberships use subqueries, never IN-lists: D1
+allows 100 bound parameters per query.
 
 **Atomic writes (decision 016).** Account + owner + workspace is one `batch()`. Invite acceptance
 is one batch whose membership `INSERT … SELECT … FROM invites WHERE <pending, email, token>` carries
@@ -89,7 +94,7 @@ Cookie-authenticated writes must be same-origin (`Sec-Fetch-Site` or `Origin`). 
   as Read Only; the email link signs in only after a click.
 - `pnpm smoke`: a full email-code sign-in inside the Worker bundle (D1 + local `send_email`).
 - Weakening checks proven red: flipping one matrix cell; memory rate limits or plain codes;
-  removing the invite guard.
+  removing the invite guard; the old `inArray` workspace query on D1.
 
 ## Gotchas
 - **Never verify a sign-in code on GET.** Link scanners would use it up. Covered by the E2E link
@@ -99,6 +104,12 @@ Cookie-authenticated writes must be same-origin (`Sec-Fetch-Site` or `Origin`). 
 - **Pages must read the request before config.** `getSession()` calls `headers()` first; the
   invite page calls `connection()`. Otherwise `next build` prerenders the page and throws on the
   missing `BETTER_AUTH_SECRET`. Covered by `pnpm smoke` (builds without a secret).
+- **D1 allows 100 bound parameters per query; libsql allows ~32k.** An `inArray()` over a
+  user-sized list passes every libsql test and fails on D1. Covered by the 101-workspace test.
+- **`BETTER_AUTH_SECRET` also encrypts stored GitHub tokens.** Rotating it forces every user to
+  link GitHub again. `BETTER_AUTH_URL` is required in production.
+- **`?next=` redirects** go through `safeRedirectPath()` (`/\evil.com` is `//evil.com` to a
+  browser).
 - **wrangler types narrow `process.env`** to the Worker's vars. Read Node env through a plain
   `Record<string, string | undefined>`.
 - **Local `send_email` writes the message file just after the response.** The smoke script polls

@@ -2,9 +2,10 @@ import { APP_NAME } from "@gitwork/core";
 import { authIdentities, type Database, rateLimits, sessions, users, verifications } from "@gitwork/db";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, emailOTP } from "better-auth/plugins";
 import type { EmailSender } from "./email";
+import { OTP_PER_EMAIL, hitLimit } from "./limits";
 import { signInEmail } from "./sign-in-email";
 import { mayCreateUser } from "./signup";
 
@@ -15,6 +16,13 @@ export interface AuthConfig {
   email: EmailSender;
   /** GitHub App OAuth credentials for linking GitHub accounts. Omit to disable linking. */
   github?: { clientId: string; clientSecret: string };
+  /**
+   * The one request header that carries the real client IP, set by infrastructure the client
+   * cannot bypass: `cf-connecting-ip` on Workers, or a reverse proxy's header on Node. Omit when
+   * nothing sets one; per-IP limits then switch off (a spoofable or shared key is worse than none)
+   * and the per-email limit still applies.
+   */
+  trustedIpHeader?: string;
 }
 
 /**
@@ -58,7 +66,20 @@ export function createAuth(config: AuthConfig) {
         "/sign-in/email-otp": { window: 300, max: 10 },
       },
     },
-    advanced: { ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] } },
+    advanced: {
+      ipAddress: config.trustedIpHeader
+        ? { ipAddressHeaders: [config.trustedIpHeader] }
+        : { disableIpTracking: true },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/email-otp/send-verification-otp") return;
+        const email = String((ctx.body as { email?: unknown } | undefined)?.email ?? "").toLowerCase();
+        if (email && !(await hitLimit(db, `otp-email:${email}`, OTP_PER_EMAIL))) {
+          throw new APIError("TOO_MANY_REQUESTS", { message: "Too many codes requested. Try again in a few minutes." });
+        }
+      }),
+    },
     socialProviders: config.github
       ? {
           github: {

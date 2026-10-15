@@ -89,6 +89,16 @@ describe.each(drivers)("services on $name", (driver: TestDriver) => {
       expect((await getWorkspaceAccess(db, "owner", workspaceId))?.role).toBe("owner");
     });
 
+    it("lists more workspaces than D1's 100 bound parameters", async () => {
+      await addUser("agency");
+      for (let i = 0; i < 101; i++) {
+        const w = await createAccountWithWorkspace(db, { userId: "owner", accountName: `Client ${i}`, workspaceName: "W" });
+        await db.insert(workspaceMembers).values({ workspaceId: w.workspaceId, userId: "agency", role: "member" });
+      }
+      expect(await listMyWorkspaces(db, "agency")).toHaveLength(101);
+      expect(await listMyWorkspaces(db, "owner")).toHaveLength(102);
+    });
+
     it("reports a linked GitHub account", async () => {
       expect((await access("owner")).actor.hasGitHub).toBe(false);
       await db.insert(authIdentities).values({ id: "g1", accountId: "12345", providerId: "github", userId: "owner" });
@@ -173,6 +183,15 @@ describe.each(drivers)("services on $name", (driver: TestDriver) => {
       await addUser("gone");
       await rejects(acceptInvite(db, { token, userId: "gone", userEmail: "gone@example.com" }), 410, "revoked");
       expect(await membership("gone")).toBeUndefined();
+    });
+
+    it("caps invites per user per hour", async () => {
+      const a = await access("owner");
+      const now = new Date("2026-06-01T12:00:00Z");
+      for (let i = 0; i < 30; i++) await createInvite(db, a, { email: `p${i}@example.com`, role: "member" }, now);
+      await rejects(createInvite(db, a, { email: "one-too-many@example.com", role: "member" }, now), 429, "rate_limited");
+      const nextHour = new Date(now.getTime() + 60 * 60_000 + 1);
+      await createInvite(db, a, { email: "later@example.com", role: "member" }, nextHour);
     });
 
     it("rejects an unknown token", async () => {

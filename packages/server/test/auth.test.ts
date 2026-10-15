@@ -56,18 +56,48 @@ describe.each(drivers)("sign-in on $name", (driver: TestDriver) => {
     expect(res.status).toBeGreaterThanOrEqual(400);
   });
 
-  it("rate-limits code requests per IP, with counters in the database", async () => {
+  it("rate-limits code requests per trusted IP and ignores a spoofed x-forwarded-for", async () => {
     const statuses: number[] = [];
     for (let i = 0; i < 6; i++) {
       const res = await authRequest(ctx.auth, "/email-otp/send-verification-otp", {
         body: { email: `user${i}@example.com`, type: "sign-in" },
         ip: "198.51.100.9",
+        forwardedFor: `10.0.0.${i}`,
       });
       statuses.push(res.status);
     }
     expect(statuses.slice(0, 5)).toEqual([200, 200, 200, 200, 200]);
     expect(statuses[5]).toBe(429);
     expect((await database.db.select().from(rateLimits)).length).toBeGreaterThan(0);
+  });
+
+  describe("with no trusted IP header (plain Node host)", () => {
+    beforeEach(() => {
+      ctx = testAuth(database, { trustedIpHeader: null });
+    });
+
+    it("limits codes per email even when every request claims a new IP", async () => {
+      const statuses: number[] = [];
+      for (let i = 0; i < 6; i++) {
+        const res = await authRequest(ctx.auth, "/email-otp/send-verification-otp", {
+          body: { email: "Target@Example.com", type: "sign-in" },
+          ip: null,
+          forwardedFor: `10.0.0.${i}`,
+        });
+        statuses.push(res.status);
+      }
+      expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+    });
+
+    it("does not lump all users into one shared bucket", async () => {
+      for (let i = 0; i < 8; i++) {
+        const res = await authRequest(ctx.auth, "/email-otp/send-verification-otp", {
+          body: { email: `person${i}@example.com`, type: "sign-in" },
+          ip: null,
+        });
+        expect(res.status).toBe(200);
+      }
+    });
   });
 
   describe("invite-only sign-ups", () => {
