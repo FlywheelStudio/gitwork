@@ -2,6 +2,20 @@
 
 Last updated: 2026-10-15
 
+## Resume here
+
+- **Phase 2 is in review:** [PR #3](https://github.com/FlywheelStudio/gitwork/pull/3), branch
+  `feature/github-app`, CI green, **not merged**. PRs #1 (Phase 0) and #2 (Phase 1) are merged.
+- **Waiting on the owner (ask, do not assume):**
+  1. Merge PR #3? (The owner approves each merge separately.)
+  2. Run the live GitHub check? It creates a test GitHub App in the FlywheelStudio org — outward
+     facing, needs an explicit yes. See Chores.
+  3. Start Phase 3 (tasks on web)? Begin with the security boundary below.
+- **Before any work:** `git fetch origin && git status -sb`. If PR #3 was merged, branch Phase 3
+  from an up-to-date `main` as `feature/tasks`.
+- **Toolchain:** pnpm comes from corepack (`corepack enable` was run on this machine). Run checks
+  from the repo root: `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm smoke`.
+
 ## In Progress
 
 None. Next step: Phase 3 — Tasks on web.
@@ -16,7 +30,7 @@ import moved to `CLAUDE.local.md`; third-party skills kept out of git.
 | Product design and decisions 001–015 | 2026-10-15 | [spec.md](spec.md) |
 | Phase 0 — Scaffold | 2026-10-15 | [features/scaffold.md](features/scaffold.md) |
 | Phase 1 — Identity | 2026-10-15 | [features/identity.md](features/identity.md) |
-| Phase 2 — GitHub App | 2026-10-15 | [features/github-app.md](features/github-app.md) |
+| Phase 2 — GitHub App (in review: PR #3, not merged) | 2026-10-15 | [features/github-app.md](features/github-app.md) |
 
 ## Backlog
 
