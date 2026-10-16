@@ -13,6 +13,7 @@ import {
   type ProjectItemNode,
   type RepoJson,
   issueRow,
+  itemIssueLinks,
   projectItemRow,
   setInstallationAvailable,
   setReposAvailable,
@@ -20,13 +21,14 @@ import {
   tombstoneIssue,
   tombstoneProjectItem,
   upsertIssue,
+  upsertIssueLinks,
   upsertProjectItem,
   upsertRepo,
 } from "./cache";
 import type { GitHubClient } from "./client";
 import type { GitHubAppConfig } from "./config";
 import { verifyWebhookSignature } from "./crypto";
-import { PROJECT_ITEM } from "./queries";
+import { ISSUE_LINKS_QUERY, type IssueLinksNode, PROJECT_ITEM } from "./queries";
 
 export interface WebhookDeps {
   db: Db;
@@ -151,7 +153,22 @@ async function planWrites(event: string, p: Payload, deps: WebhookDeps): Promise
       // The payload says *that* an item changed, not its new field values: fetch the item.
       const data = await deps.client.graphql<{ node: ProjectItemNode | null }>(installationId, PROJECT_ITEM, { id: item.node_id });
       if (!data.node) return [tombstoneProjectItem(db, item.node_id, projectNodeId, now)];
-      return [upsertProjectItem(db, projectItemRow(projectNodeId, data.node, now), "fresh")];
+      return [upsertProjectItem(db, projectItemRow(projectNodeId, data.node, now), "fresh"), ...itemIssueLinks(db, data.node, now)];
+    }
+
+    case "sub_issues":
+    case "issue_dependencies": {
+      // Payloads name the issues on both ends (parent_issue / sub_issue, blocked_issue /
+      // blocking_issue). Refetch the links of each from GitHub instead of trusting the payload.
+      if (!installationId) return [];
+      const ids = [...new Set(
+        Object.entries(p)
+          .filter(([key, value]) => key.endsWith("_issue") && value && typeof (value as { node_id?: unknown }).node_id === "string")
+          .map(([, value]) => (value as { node_id: string }).node_id),
+      )];
+      if (ids.length === 0) return [];
+      const data = await deps.client.graphql<{ nodes: (IssueLinksNode | null)[] }>(installationId, ISSUE_LINKS_QUERY, { ids }, { allowNotFound: true });
+      return data.nodes.flatMap((n) => (n?.id ? [upsertIssueLinks(db, n, now)] : []));
     }
 
     case "projects_v2": {
@@ -162,7 +179,7 @@ async function planWrites(event: string, p: Payload, deps: WebhookDeps): Promise
     }
 
     default:
-      // ping, push (Phase 4), sub_issues / issue_dependencies / label (reconcile refreshes), …
+      // ping, push (Phase 4), label (reconcile refreshes), …
       return [];
   }
 }

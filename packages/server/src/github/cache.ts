@@ -5,9 +5,10 @@
  *   - "fresh": data just fetched from GitHub also applies on an equal timestamp.
  *   - Tombstoned (deleted) rows never come back.
  */
-import { type Db, type ProjectFieldValue, ghIssues, ghProjectFields, ghProjectItems, ghProjects, ghRepos } from "@gitwork/db";
+import { type Db, type ProjectFieldValue, ghIssueLinks, ghIssues, ghProjectFields, ghProjectItems, ghProjects, ghRepos } from "@gitwork/db";
 import { type SQL, and, eq, getTableColumns, lt, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
+import type { IssueLinksNode } from "./queries";
 
 export type Freshness = "newer" | "fresh";
 
@@ -180,7 +181,7 @@ export interface ProjectItemNode {
   isArchived: boolean;
   updatedAt: string;
   project?: { id: string };
-  content: { id?: string; title?: string; body?: string } | null;
+  content: ({ id?: string; title?: string; body?: string } & Partial<Omit<IssueLinksNode, "id">>) | null;
   fieldValues: { nodes: FieldValueNode[] };
 }
 
@@ -295,4 +296,27 @@ export function markIssuesDeleted(db: Db, nodeIds: string[]) {
 
 export function markProjectItemsDeleted(db: Db, nodeIds: string[]) {
   return db.update(ghProjectItems).set({ deleted: true }).where(inJsonList(ghProjectItems.nodeId, nodeIds));
+}
+
+// ---- Issue links (sub-issues, dependencies) ---------------------------------------------------
+
+/**
+ * Links as GitHub reports them now. No timestamp guard: links are always fetched fresh (never
+ * taken from a webhook payload), and the next board sync repairs a late, older write.
+ */
+export function upsertIssueLinks(db: Db, node: IssueLinksNode, now: Date) {
+  const row = {
+    issueNodeId: node.id,
+    parentNodeId: node.parent?.id ?? null,
+    blockedBy: (node.blockedBy?.nodes ?? []).flatMap((n) => (n ? [n.id] : [])),
+    syncedAt: now,
+  };
+  return db.insert(ghIssueLinks).values(row).onConflictDoUpdate({ target: ghIssueLinks.issueNodeId, set: excludedSet(ghIssueLinks, ["issueNodeId"]) });
+}
+
+/** The link write for an item's issue, when the item came with its links. */
+export function itemIssueLinks(db: Db, node: ProjectItemNode, now: Date) {
+  const content = node.content;
+  if (node.type !== "ISSUE" || !content?.id || content.parent === undefined) return [];
+  return [upsertIssueLinks(db, { id: content.id, parent: content.parent, blockedBy: content.blockedBy }, now)];
 }

@@ -54,10 +54,26 @@ export async function allTestDrivers(): Promise<TestDriver[]> {
 }
 
 async function resetD1(binding: D1Database): Promise<void> {
-  const { results } = await binding
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'")
-    .all<{ name: string }>();
-  const drops = results.map((r) => binding.prepare(`DROP TABLE IF EXISTS "${r.name}"`));
+  const { results: tables } = await binding
+    .prepare("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'")
+    .all<{ name: string; sql: string }>();
+  // D1 refuses pragma_foreign_key_list, so read REFERENCES clauses from the CREATE statements.
+  const refs = tables.flatMap((t) =>
+    [...t.sql.matchAll(/REFERENCES\s+[`"]?(\w+)[`"]?/gi)].map((m) => ({ child: t.name, parent: m[1]! })),
+  );
+  // Children before parents: emptying a child table under deferred foreign keys looks up its
+  // parent, which must still exist. Neither name nor creation order guarantees that.
+  const left = new Set(tables.map((t) => t.name));
+  const order: string[] = [];
+  while (left.size > 0) {
+    const next = [...left].filter((t) => !refs.some((r) => r.parent === t && r.child !== t && left.has(r.child)));
+    if (next.length === 0) throw new Error(`foreign key cycle among: ${[...left].join(", ")}`);
+    for (const t of next) {
+      order.push(t);
+      left.delete(t);
+    }
+  }
+  const drops = order.map((name) => binding.prepare(`DROP TABLE IF EXISTS "${name}"`));
   if (drops.length > 0) {
     await binding.batch([binding.prepare("PRAGMA defer_foreign_keys = ON"), ...drops]);
   }

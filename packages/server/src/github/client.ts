@@ -35,7 +35,9 @@ export interface GitHubClientOptions {
   now?: () => number;
 }
 
-type Auth = { installationId: number } | { app: true };
+/** Installation token, App JWT, or a linked user's own token (their App user token). */
+export type GitHubAuth = { installationId: number } | { app: true } | { userToken: string };
+type Auth = GitHubAuth;
 
 /**
  * A small fetch-based GitHub client (Node + Workers). No retries that sleep: Workers cannot wait
@@ -84,7 +86,8 @@ export class GitHubClient {
   }
 
   private async raw(method: string, pathOrUrl: string, auth: Auth, body?: unknown): Promise<Response> {
-    const token = "app" in auth ? await this.appJwt() : await this.installationToken(auth.installationId);
+    const token =
+      "app" in auth ? await this.appJwt() : "userToken" in auth ? auth.userToken : await this.installationToken(auth.installationId);
     const res = await this.fetch(pathOrUrl.startsWith("https://") ? pathOrUrl : `${API}${pathOrUrl}`, {
       method,
       headers: {
@@ -114,9 +117,15 @@ export class GitHubClient {
 
   /** One page of a list, and the URL of the next page (from the `Link` header). */
   async page<T>(pathOrUrl: string, auth: Auth): Promise<{ items: T[]; next: string | null }> {
+    const { data, next } = await this.pageOf<T[]>(pathOrUrl, auth);
+    return { items: data, next };
+  }
+
+  /** One page of an endpoint that wraps its list in an object, e.g. `{ repositories: [...] }`. */
+  async pageOf<T>(pathOrUrl: string, auth: Auth): Promise<{ data: T; next: string | null }> {
     const res = await this.raw("GET", pathOrUrl, auth);
     return {
-      items: (await res.json()) as T[],
+      data: (await res.json()) as T,
       next: /<([^>]+)>;\s*rel="next"/.exec(res.headers.get("link") ?? "")?.[1] ?? null,
     };
   }
@@ -137,16 +146,29 @@ export class GitHubClient {
    * that is an answer, not a failure.
    */
   async graphql<T>(
-    installationId: number,
+    auth: number | Auth,
     query: string,
     variables: Record<string, unknown>,
     options: { allowNotFound?: boolean } = {},
   ): Promise<T> {
-    const res = await this.raw("POST", "/graphql", { installationId }, { query, variables });
+    const res = await this.raw("POST", "/graphql", typeof auth === "number" ? { installationId: auth } : auth, { query, variables });
     const out = (await res.json()) as { data?: T; errors?: { type?: string; message: string }[] };
     if (out.errors?.some((e) => e.type === "RATE_LIMITED")) throw new GitHubRateLimitError(this.now() + 60_000);
     const errors = options.allowNotFound ? out.errors?.filter((e) => e.type !== "NOT_FOUND") : out.errors;
     if (errors?.length) throw new GitHubError(200, `GitHub GraphQL error: ${errors[0]!.message}`, errors);
     return out.data as T;
   }
+}
+
+/**
+ * GitHub said "you cannot do this" (or "not found", which is how it hides private things), as
+ * opposed to a rate limit or an outage. A user-token write that fails this way may retry as the App.
+ */
+export function isAccessDenied(error: unknown): boolean {
+  if (!(error instanceof GitHubError) || error instanceof GitHubRateLimitError) return false;
+  if (error.status === 401 || error.status === 403 || error.status === 404) return true;
+  if (error.status === 200 && Array.isArray(error.body)) {
+    return (error.body as { type?: string }[]).some((e) => e.type === "FORBIDDEN" || e.type === "NOT_FOUND" || e.type === "INSUFFICIENT_SCOPES");
+  }
+  return false;
 }
