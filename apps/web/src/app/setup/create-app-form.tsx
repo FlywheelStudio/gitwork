@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { Button, ErrorText, Input, Label } from "@/components/ui";
+import { Button, ErrorText, Input, Label } from "@/components/kit";
 import { api } from "@/lib/api";
 
 /**

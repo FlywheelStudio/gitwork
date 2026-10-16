@@ -1,6 +1,6 @@
 import { hasLinkedGitHub } from "@gitwork/server";
 import { Header } from "@/components/header";
-import { Card } from "@/components/ui";
+import { Card } from "@/components/kit";
 import { getDeps } from "@/server/context";
 import { requireUser } from "@/server/pages";
 import { LinkGitHubButton } from "./link-github";

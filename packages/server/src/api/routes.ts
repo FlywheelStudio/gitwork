@@ -2,7 +2,7 @@ import { CAPABILITIES, ROLES, can } from "@gitwork/core";
 import { users } from "@gitwork/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireWorkspaceAccess } from "../services/access";
+import { requireCapability, requireWorkspaceAccess } from "../services/access";
 import { createAccountWithWorkspace, createWorkspace, listMyWorkspaces } from "../services/accounts";
 import {
   acceptInvite,
@@ -127,6 +127,7 @@ export const routes = [
     body: z.object({ repoNodeId: nodeId, title: taskTitle, body: taskBody.optional(), fields: fieldChanges }),
     async handler(ctx) {
       const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "tasks.write"); // before "GitHub not set up": no hints for Read Only
       return { task: await createTask(taskDeps(ctx), access, ctx.body) };
     },
   }),
@@ -143,6 +144,7 @@ export const routes = [
     }),
     async handler(ctx) {
       const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "tasks.write");
       return { task: await updateTask(taskDeps(ctx), access, ctx.params.itemId!, ctx.body) };
     },
   }),
@@ -172,6 +174,7 @@ export const routes = [
     pattern: "/workspaces/:workspaceId/github/candidates",
     async handler(ctx) {
       const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "workspace.github_settings");
       return listLinkCandidates(githubDeps(ctx), access);
     },
   }),
@@ -186,6 +189,7 @@ export const routes = [
     }),
     async handler(ctx) {
       const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "workspace.github_settings");
       const out = await linkWorkspace(githubDeps(ctx), access, ctx.body);
       return { projectNodeId: out.projectNodeId, repoNodeIds: out.repoNodeIds, firstSync: { synced: out.firstSync.synced.length, skipped: out.firstSync.skipped ?? null } };
     },

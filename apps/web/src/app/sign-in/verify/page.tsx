@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui";
+import { Card } from "@/components/kit";
 import { VerifyLink } from "./verify-link";
 
 export default function VerifyPage() {

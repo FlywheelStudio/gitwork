@@ -1,7 +1,7 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Button, ErrorText, Input, Label } from "@/components/ui";
+import { Button, ErrorText, Input, Label } from "@/components/kit";
 import { safeNext } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 

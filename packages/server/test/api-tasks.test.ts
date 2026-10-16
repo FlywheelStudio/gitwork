@@ -98,6 +98,8 @@ describe.each(drivers)("/api/v1 tasks on $name", (driver: TestDriver) => {
     expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
     deps = { ...deps, github: null };
     expect((await api("POST", "/tasks", { as: "max", body: { repoNodeId: IDS.site, title: "x" } })).status).toBe(409);
+    // A role that may not write learns nothing about the instance's setup.
+    expect((await api("POST", "/tasks", { as: "rita", body: { repoNodeId: IDS.site, title: "x" } })).status).toBe(403);
     // Reads never need GitHub.
     expect((await api("GET", "/tasks", { as: "max" })).status).toBe(200);
   });

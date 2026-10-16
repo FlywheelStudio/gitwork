@@ -3,7 +3,7 @@ import { getInvitePreview } from "@gitwork/server";
 import Link from "next/link";
 import { connection } from "next/server";
 import { SignOutButton } from "@/components/sign-out-button";
-import { Card, ROLE_LABEL } from "@/components/ui";
+import { Card, ROLE_LABEL } from "@/components/kit";
 import { getDeps, getSession } from "@/server/context";
 import { messageOf } from "@/server/pages";
 import { AcceptButton } from "./accept-button";
