@@ -172,36 +172,38 @@ export function KanbanView({ workspaceId, tasks, fields, mapping, canWrite }: Vi
 
 const DAY = 86_400_000;
 const ROW = 36;
+const DAY_PX = 24;
+const BAR = 20;
 
 export function TimelineView({ workspaceId, tasks, mapping }: ViewProps) {
+  // Read the clock once per mount, not on every render.
+  const [now] = useState(() => Date.now());
+  if (!mapping.startFieldId && !mapping.targetFieldId && !mapping.iterationFieldId) {
+    return <p className="text-sm text-muted-foreground">This board has no date or iteration fields. An Admin can map them in Settings.</p>;
+  }
   const scheduled = treeOrder(tasks).flatMap(({ task }) => {
     const span = spanOf(task, mapping);
     return span ? [{ task, ...span }] : [];
   });
   const unscheduled = tasks.filter((t) => !spanOf(t, mapping));
-  if (!mapping.startFieldId && !mapping.targetFieldId && !mapping.iterationFieldId) {
-    return <p className="text-sm text-muted-foreground">This board has no date or iteration fields. An Admin can map them in Settings.</p>;
-  }
-  const min = Math.min(...scheduled.map((s) => s.start));
-  const max = Math.max(...scheduled.map((s) => s.end));
-  const days = scheduled.length ? Math.max(7, Math.round((max - min) / DAY)) : 7;
-  const pct = (t: number) => ((t - min) / (days * DAY)) * 100;
+  // Two days of air on each side, starting on a Monday so week lines fall on whole days.
+  const first = scheduled.length ? Math.min(...scheduled.map((s) => s.start)) - 2 * DAY : now;
+  const startDay = first - ((new Date(first).getUTCDay() + 6) % 7) * DAY;
+  const endDay = scheduled.length ? Math.max(...scheduled.map((s) => s.end)) + 2 * DAY : startDay + 14 * DAY;
+  const days = Math.max(14, Math.ceil((endDay - startDay) / DAY));
+  const x = (t: number) => ((t - startDay) / DAY) * DAY_PX;
+  const width = days * DAY_PX;
+  const height = scheduled.length * ROW;
   const rowOf = new Map(scheduled.map((s, i) => [s.task.id, i]));
-  const months: { label: string; left: number }[] = [];
-  if (scheduled.length) {
-    const d = new Date(min);
-    d.setUTCDate(1);
-    for (; d.getTime() < max; d.setUTCMonth(d.getUTCMonth() + 1)) {
-      if (d.getTime() >= min) months.push({ label: d.toLocaleDateString("en", { month: "short", year: "numeric", timeZone: "UTC" }), left: pct(d.getTime()) });
-    }
-  }
+  const weeks = Array.from({ length: Math.ceil(days / 7) }, (_, i) => startDay + i * 7 * DAY);
+  const label = (t: number) => new Date(t).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
 
   return (
     <div className="space-y-6">
       {scheduled.length === 0 ? (
         <p className="text-sm text-muted-foreground">No task has dates yet.</p>
       ) : (
-        <div className="grid grid-cols-[minmax(10rem,16rem)_1fr] overflow-x-auto rounded-xl ring-1 ring-foreground/10">
+        <div className="grid grid-cols-[minmax(10rem,16rem)_1fr] rounded-xl ring-1 ring-foreground/10">
           <div className="border-r border-foreground/10">
             <div className="h-8 border-b border-foreground/10" />
             {scheduled.map(({ task }) => (
@@ -210,47 +212,47 @@ export function TimelineView({ workspaceId, tasks, mapping }: ViewProps) {
               </div>
             ))}
           </div>
-          <div className="relative min-w-[40rem]">
-            <div className="relative h-8 border-b border-foreground/10 text-xs text-muted-foreground">
-              {months.map((m) => (
-                <span key={m.label} className="absolute top-2 pl-1" style={{ left: `${m.left}%` }}>
-                  {m.label}
-                </span>
-              ))}
-            </div>
-            <div className="relative" style={{ height: scheduled.length * ROW }}>
-              {scheduled.map(({ task, start, end }, i) => (
-                <div
-                  key={task.id}
-                  title={task.title}
-                  className="absolute h-5 rounded-md bg-primary/80"
-                  style={{ top: i * ROW + (ROW - 20) / 2, left: `${pct(start)}%`, width: `${Math.max(pct(end) - pct(start), 0.8)}%` }}
-                />
-              ))}
-              {/* Dependency arrows: from the blocker's end to the blocked task's start. */}
-              <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+          <div className="overflow-x-auto">
+            <div style={{ width }}>
+              <div className="relative h-8 border-b border-foreground/10 text-xs text-muted-foreground">
+                {weeks.map((w) => (
+                  <span key={w} className="absolute top-2 pl-1 whitespace-nowrap" style={{ left: x(w) }}>
+                    {label(w)}
+                  </span>
+                ))}
+              </div>
+              <svg width={width} height={height} className="block" aria-hidden>
                 <defs>
                   <marker id="arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="6" markerHeight="6" orient="auto">
                     <path d="M0,0 L6,3 L0,6 z" className="fill-muted-foreground" />
                   </marker>
                 </defs>
+                {weeks.map((w) => (
+                  <line key={w} x1={x(w)} x2={x(w)} y1={0} y2={height} className="stroke-foreground/10" />
+                ))}
+                {now > startDay && now < startDay + days * DAY && (
+                  <line x1={x(now)} x2={x(now)} y1={0} y2={height} className="stroke-destructive/60" strokeDasharray="3 3" />
+                )}
+                {scheduled.map(({ task, start, end }, i) => (
+                  <rect key={task.id} x={x(start)} y={i * ROW + (ROW - BAR) / 2} width={Math.max(x(end) - x(start), 6)} height={BAR} rx={5} className="fill-primary/80">
+                    <title>{task.title}</title>
+                  </rect>
+                ))}
+                {/* Dependencies: out of the blocker's end, down, into the blocked task's start. */}
                 {scheduled.flatMap(({ task, start }, i) =>
                   task.blockedBy.flatMap((blocker) => {
                     const j = rowOf.get(blocker);
                     if (j === undefined) return [];
-                    const from = scheduled[j]!;
-                    return [
-                      <line
-                        key={`${blocker}-${task.id}`}
-                        x1={`${pct(from.end)}%`}
-                        y1={j * ROW + ROW / 2}
-                        x2={`${pct(start)}%`}
-                        y2={i * ROW + ROW / 2}
-                        className="stroke-muted-foreground"
-                        strokeWidth={1.5}
-                        markerEnd="url(#arrow)"
-                      />,
-                    ];
+                    const x1 = x(scheduled[j]!.end);
+                    const y1 = j * ROW + ROW / 2;
+                    const x2 = x(start);
+                    const y2 = i * ROW + ROW / 2;
+                    const elbow = x1 + 8;
+                    const d = elbow <= x2 - 8
+                      ? `M${x1},${y1} H${elbow} V${y2} H${x2}`
+                      : // The blocked task starts before its blocker ends: loop back between rows.
+                        `M${x1},${y1} H${elbow} V${(y1 + y2) / 2} H${x2 - 8} V${y2} H${x2}`;
+                    return [<path key={`${blocker}-${task.id}`} d={d} fill="none" className="stroke-muted-foreground" strokeWidth={1.5} markerEnd="url(#arrow)" />];
                   }),
                 )}
               </svg>

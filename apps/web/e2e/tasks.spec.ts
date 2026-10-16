@@ -72,7 +72,7 @@ async function seedLinkedBoard(workspaceId: string) {
     syncedAt: now,
   });
   const todo = { F_status: { type: "single_select", optionId: "opt-todo", name: "Todo" } };
-  const dated = { ...todo, F_start: { type: "date", date: "2026-06-01" }, F_target: { type: "date", date: "2026-06-10" } };
+  const dated = (start: string, target: string) => ({ ...todo, F_start: { type: "date", date: start }, F_target: { type: "date", date: target } });
   await db.batch([
     db.insert(ghRepos).values([repo("R_site", "site", 1), repo("R_internal", "internal", 2)]),
     db.insert(ghIssues).values([
@@ -88,10 +88,10 @@ async function seedLinkedBoard(workspaceId: string) {
       { nodeId: "F_target", projectNodeId: "PVT_1", name: "Target date", dataType: "DATE", config: null, syncedAt: now },
     ]),
     db.insert(ghProjectItems).values([
-      item("PVTI_site1", "I_site#1", dated),
-      item("PVTI_hidden", "I_site#2", dated),
-      item("PVTI_site3", "I_site#3", dated),
-      item("PVTI_int1", "I_internal#1", dated),
+      item("PVTI_site1", "I_site#1", dated("2026-05-25", "2026-06-03")),
+      item("PVTI_hidden", "I_site#2", dated("2026-06-01", "2026-06-10")),
+      item("PVTI_site3", "I_site#3", dated("2026-06-06", "2026-06-16")),
+      item("PVTI_int1", "I_internal#1", dated("2026-05-28", "2026-06-04")),
       item("PVTI_draft", null, todo, "Idea: dark mode"),
     ]),
     // site#3 is a sub-issue of the hidden issue and is blocked by the unlinked one and by site#1.

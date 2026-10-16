@@ -64,7 +64,7 @@ export default async function TaskPage({ params }: PageProps<"/w/[workspaceId]/t
               <div className="contents">
                 <dt className="text-muted-foreground">Parent</dt>
                 <dd>
-                  <Link href={`/w/${workspaceId}/tasks/${encodeURIComponent(task.parentId)}`} className="hover:underline">
+                  <Link href={`/w/${workspaceId}/tasks/${encodeURIComponent(task.parentId)}`} className="underline">
                     {titleOf(task.parentId)}
                   </Link>
                 </dd>
@@ -75,7 +75,7 @@ export default async function TaskPage({ params }: PageProps<"/w/[workspaceId]/t
                 <dt className="text-muted-foreground">Blocked by</dt>
                 <dd className="space-x-2">
                   {task.blockedBy.map((id) => (
-                    <Link key={id} href={`/w/${workspaceId}/tasks/${encodeURIComponent(id)}`} className="hover:underline">
+                    <Link key={id} href={`/w/${workspaceId}/tasks/${encodeURIComponent(id)}`} className="underline">
                       {titleOf(id)}
                     </Link>
                   ))}
