@@ -36,7 +36,7 @@ pnpm db:migrate     # apply migrations to the local SQLite file
 ```
 apps/web        Next.js app, /api/v1 REST API, GitHub webhooks
 apps/mac        Native macOS app (AppKit + TextKit 2) — Phase 6, not created yet
-packages/core   Pure domain logic: role matrix (permissions.ts); later visibility, attribution, markdown
+packages/core   Pure domain logic: role matrix (permissions.ts), task visibility (visibility.ts), attribution
 packages/server DB- and auth-aware code: Better Auth factory, services, /api/v1 router, email
 packages/db     Drizzle schema + migrations (SQLite dialect), D1 and file drivers, test helpers
 docs/           INDEX.md → STATE.md → spec.md, decisions/
@@ -46,7 +46,11 @@ docs/           INDEX.md → STATE.md → spec.md, decisions/
 
 - Every read and write goes through the permission and visibility checks in `packages/core`. Never
   return GitHub data to a client without them. Services load access with
-  `requireWorkspaceAccess()` and call `requireCapability()`.
+  `requireWorkspaceAccess()` and call `requireCapability()`. Tasks pass `isTaskVisible()`.
+- Linking repos or a board is checked with the user's **own** GitHub token (decision 020).
+- Every write adds an `audit_log` row through `services/audit.ts`, in the same batch.
+- UI: shadcn/ui files in `apps/web/src/components/ui/` stay as the CLI writes them; app wrappers
+  live in `components/kit.tsx`.
 - New `/api/v1` routes go in `packages/server/src/api/routes.ts`, with tests in
   `packages/server/test/api.test.ts` (success, 401, 403, 400).
 - DB tests run on both drivers: `describe.each(await allTestDrivers())` from `@gitwork/db/testing`.

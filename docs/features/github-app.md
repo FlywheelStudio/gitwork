@@ -65,8 +65,8 @@ limit still moves forward.
 - Each scheduled run also prunes deliveries older than 14 days, expired setup states, and
   rate-limit rows older than a day, and records `reconcile_last_run`.
 
-**Sync targets** (`gh_sync_targets`) decide what reconcile covers. Phase 3 creates them when a
-workspace links a board and repos.
+**Sync targets** (`gh_sync_targets`) decide what reconcile covers. Linking a workspace creates
+them and prunes the ones no workspace uses (features/tasks.md).
 
 **Setup security.**
 - `/setup` and its API are instance-admin only (404 / 403 otherwise).
@@ -115,12 +115,12 @@ workspace links a board and repos.
 - **Never tested against real GitHub.** The manifest flow, App availability of `projects_v2*`
   webhooks, and real payload shapes are covered only by docs and the fake. See STATE.
 - **Two concurrent refreshes of one user token can lock the user out** (GitHub invalidates the old
-  refresh token). Phase 3 must serialize user-token use per user.
+  refresh token). Phase 3 serializes refreshes with a per-user lease (`github/user-token.ts`).
 - **Projects v2 lists only non-archived items by default.** The sweep would tombstone archived
   items without `archivedStates`.
 - **`@ts-ignore` in `worker.ts`** is deliberate: `.open-next/worker.js` exists only after a build,
   so `@ts-expect-error` fails in one of the two states.
 - **The Next route file must export every method the router uses** (`PUT` was missing; Next
   returned 405 before the router ran). Covered by the setup E2E.
-- `sub_issues`, `issue_dependencies`, and `label` events are recorded but not yet applied;
-  reconcile refreshes labels on the next pass. Phase 3 adds parent/dependency fields.
+- `label` events are recorded but not applied; reconcile refreshes labels on the next pass.
+  `sub_issues` and `issue_dependencies` refetch links since Phase 3 (see features/tasks.md).
