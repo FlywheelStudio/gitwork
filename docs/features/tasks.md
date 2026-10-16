@@ -61,7 +61,8 @@ content, so board syncs and `projects_v2_item` refetches keep `gh_issue_links` c
 `sub_issues` and `issue_dependencies` webhooks refetch the links of every issue named in the
 payload (`IssueLinks` query) instead of trusting it.
 
-**Field mapping.** Stored ids win when they still fit the field type; otherwise: kanban = a
+**Field mapping.** Stored ids win when they still fit the field type. A stored null means
+**auto-detect** (the settings form labels it so); there is no "none" yet. Auto-detect: kanban = a
 single-select named "Status", else the first one; start = "Start date"/"Start"; end = "Target
 date"/"End date"/"Due date"/"Due"; iteration = the first iteration field.
 

@@ -3,6 +3,7 @@ import { sqliteTestDriver } from "@gitwork/db/testing";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuth } from "../src/auth";
+import { userGitHubToken } from "../src/github/user-token";
 import { memorySender } from "../src/email";
 import { BASE_URL, authRequest, cookieFrom, signIn } from "./helpers";
 
@@ -97,6 +98,26 @@ describe("GitHub OAuth link callback", () => {
     expect(token.accessToken).toBe("ghu_access_2");
     expect(tokenCalls[1]?.get("grant_type")).toBe("refresh_token");
     expect(tokenCalls[1]?.get("refresh_token")).toBe("ghr_refresh_1");
+  });
+
+  it("refreshes once, persisted, when two requests find the real token expired (per-user lease)", async () => {
+    const cookie = await signIn(auth, email, "jane@agency.com");
+    stubGitHub({ id: 12345, email: null });
+    await linkFlow(cookie);
+    const [identity] = await db.select().from(authIdentities).where(eq(authIdentities.providerId, "github"));
+    await db.update(authIdentities).set({ accessTokenExpiresAt: new Date(Date.now() - 1000) }).where(eq(authIdentities.id, identity!.id));
+
+    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, Math.min(ms, 20)));
+    const tokens = await Promise.all([
+      userGitHubToken({ db, auth, sleep }, identity!.userId),
+      userGitHubToken({ db, auth, sleep }, identity!.userId),
+    ]);
+    // The real Better Auth endpoint: called with only { accountId, userId }, it stores the new
+    // tokens, so the waiting request reads them instead of refreshing with a dead refresh token.
+    expect(tokenCalls.filter((c) => c.get("grant_type") === "refresh_token")).toHaveLength(1);
+    expect(tokens).toEqual(["ghu_access_2", "ghu_access_2"]);
+    const [after] = await db.select().from(authIdentities).where(eq(authIdentities.id, identity!.id));
+    expect(after!.accessTokenExpiresAt!.getTime()).toBeGreaterThan(Date.now() + 7 * 3_600_000);
   });
 
   it("never creates a user from a GitHub sign-in (link only)", async () => {

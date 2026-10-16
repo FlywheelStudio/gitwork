@@ -189,7 +189,8 @@ export function FieldMappingPanel(props: { workspaceId: string; fields: { id: st
               value={mapping[row.key] ?? ""}
               onChange={(e) => setMapping((m) => ({ ...m, [row.key]: e.target.value || null }))}
             >
-              <option value="">None</option>
+              {/* Empty = auto-detect by GitHub's usual field names (resolveMapping). */}
+              <option value="">Auto-detect</option>
               {props.fields
                 .filter((f) => f.dataType === row.type)
                 .map((f) => (

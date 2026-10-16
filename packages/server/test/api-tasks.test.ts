@@ -45,6 +45,7 @@ describe.each(drivers)("/api/v1 tasks on $name", (driver: TestDriver) => {
 
   it("returns 401 without a session", async () => {
     expect((await api("GET", "/tasks")).status).toBe(401);
+    expect((await api("GET", "/github/candidates")).status).toBe(401);
     expect((await api("PUT", "/github", { body: {} })).status).toBe(401);
     expect((await api("POST", "/tasks", { body: {} })).status).toBe(401);
   });
@@ -100,6 +101,9 @@ describe.each(drivers)("/api/v1 tasks on $name", (driver: TestDriver) => {
     expect((await api("POST", "/tasks", { as: "max", body: { repoNodeId: IDS.site, title: "x" } })).status).toBe(409);
     // A role that may not write learns nothing about the instance's setup.
     expect((await api("POST", "/tasks", { as: "rita", body: { repoNodeId: IDS.site, title: "x" } })).status).toBe(403);
+    expect((await api("GET", "/github/candidates", { as: "rita" })).status).toBe(403);
+    expect((await api("PUT", "/github", { as: "sam", body: { installationId: 99, projectNodeId: IDS.board, repoNodeIds: [IDS.site] } })).status).toBe(403);
+    expect((await api("GET", "/github/candidates", { as: "jane" })).status).toBe(409);
     // Reads never need GitHub.
     expect((await api("GET", "/tasks", { as: "max" })).status).toBe(200);
   });

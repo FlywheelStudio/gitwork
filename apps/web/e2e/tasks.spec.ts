@@ -15,10 +15,8 @@ import {
   ghRepos,
   workspaceGithub,
   workspaceRepos,
-  workspaces,
 } from "@gitwork/db";
 import { openSqlite } from "@gitwork/db/node";
-import { eq } from "drizzle-orm";
 import { lastEmail, signInCode } from "./outbox";
 
 const SECRETS = ["Secret roadmap", "Internal pricing notes", "Idea: dark mode", "PVTI_int1", "PVTI_hidden", "PVTI_draft"];
@@ -98,7 +96,6 @@ async function seedLinkedBoard(workspaceId: string) {
     db.insert(ghIssueLinks).values({ issueNodeId: "I_site#3", parentNodeId: "I_site#2", blockedBy: ["I_internal#1", "I_site#1"], syncedAt: now }),
     db.insert(workspaceGithub).values({ workspaceId, installationId: 99, projectNodeId: "PVT_1", linkedAt: now }),
     db.insert(workspaceRepos).values({ workspaceId, repoNodeId: "R_site" }),
-    db.update(workspaces).set({ hideLabel: "internal" }).where(eq(workspaces.id, workspaceId)),
   ]);
 }
 
@@ -123,6 +120,13 @@ test("Read Only never receives a hidden task or one from an unlinked repo", asyn
   await expect(owner.getByRole("heading", { name: "Tasks Website" })).toBeVisible();
   const workspaceId = /\/w\/([^/?#]+)/.exec(owner.url())![1]!;
   await seedLinkedBoard(workspaceId);
+
+  // The owner sets the hide label through the settings form (no GitHub needed for this one).
+  await owner.goto(`/w/${workspaceId}/settings`);
+  await owner.getByLabel("Hide issues with this label").fill("internal");
+  const saved = owner.waitForResponse((r) => r.url().endsWith(`/workspaces/${workspaceId}/settings`) && r.status() === 204);
+  await owner.getByRole("button", { name: "Save", exact: true }).click();
+  await saved;
 
   await owner.getByRole("link", { name: "Members" }).click();
   await owner.getByLabel("Email").fill("tasks-reader@example.com");

@@ -103,10 +103,13 @@ describe.each(drivers)("tasks on $name", (driver: TestDriver) => {
       expect(await listTasks(w.db, await requireWorkspaceAccess(w.db, "owner", other.workspaceId))).toEqual({ linked: false });
     });
 
-    it("maps fields by GitHub's usual names, and lets an Admin override", async () => {
+    it("maps fields by GitHub's usual names, lets an Admin override, and null means auto-detect", async () => {
       const view = await board("jane");
       expect(view.mapping).toEqual({ kanbanFieldId: IDS.status, startFieldId: IDS.start, targetFieldId: IDS.target, iterationFieldId: null });
-      expect((await setFieldMapping(w.db, await w.access("jane"), { startFieldId: IDS.target, targetFieldId: null })).targetFieldId).toBe(IDS.target);
+      const set = await setFieldMapping(w.db, await w.access("jane"), { startFieldId: IDS.target, targetFieldId: null });
+      expect(set.startFieldId).toBe(IDS.target);
+      // null is "auto-detect", not "none": the end falls back to the field named "Target date".
+      expect(set.targetFieldId).toBe(IDS.target);
       await rejects(setFieldMapping(w.db, await w.access("jane"), { kanbanFieldId: IDS.start }), 400);
       await rejects(setFieldMapping(w.db, await w.access("max"), { kanbanFieldId: IDS.status }), 403);
       expect(resolveMapping([], null)).toEqual({ kanbanFieldId: null, startFieldId: null, targetFieldId: null, iterationFieldId: null });
