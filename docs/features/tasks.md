@@ -62,7 +62,7 @@ content, so board syncs and `projects_v2_item` refetches keep `gh_issue_links` c
 payload (`IssueLinks` query) instead of trusting it.
 
 **Field mapping.** Stored ids win when they still fit the field type. A stored null means
-**auto-detect** (the settings form labels it so); there is no "none" yet. Auto-detect: kanban = a
+**auto-detect** (the settings form labels it so); there is no "none" (decision 009). Auto-detect: kanban = a
 single-select named "Status", else the first one; start = "Start date"/"Start"; end = "Target
 date"/"End date"/"Due date"/"Due"; iteration = the first iteration field.
 
@@ -108,8 +108,8 @@ Add components with `pnpm exec shadcn add <name>` from `apps/web`.
 - **D1 test reset** drops tables in foreign-key order, read from the `CREATE` statements (D1 refuses
   `pragma_foreign_key_list`). drizzle-kit creates tables alphabetically, so neither name nor
   creation order is a dependency order.
-- **Worker bundle:** 3.40 MiB gzipped (main was 3.23 MiB before this phase). Both exceed the Workers
-  Free plan's 3 MiB; the Paid plan allows 10 MiB. Self-hosters on Free cannot deploy as is.
+- **Worker bundle:** 3.40 MiB gzipped (3.23 MiB before this phase), over the Workers Free plan's
+  3 MiB. Cloudflare hosting requires the Paid plan (decision 022).
 - **Not tested against real GitHub.** `/user/installations/{id}/repositories`, the Projects v2
   mutations, and the `sub_issues` / `issue_dependencies` payload keys follow GitHub's docs and the
   live GraphQL schema (introspected 2026-10-15), not real calls. See STATE → live check.

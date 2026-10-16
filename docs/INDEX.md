@@ -30,6 +30,7 @@
 | 019 | [Instance admins and email from the environment; wizard creates the GitHub App](decisions/019-instance-setup.md) |
 | 020 | [Linking a workspace is checked with the user's own GitHub token](decisions/020-workspace-link-boundary.md) |
 | 021 | [Task writes: user token first, App on refusal, synchronous](decisions/021-task-writes.md) |
+| 022 | [Cloudflare hosting requires the Workers Paid plan](decisions/022-cloudflare-paid-plan.md) |
 
 ## Features
 
