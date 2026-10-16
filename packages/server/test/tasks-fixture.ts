@@ -114,11 +114,11 @@ export async function setupWorkspace(database: Database) {
     { id: 100, accountLogin: "globex", accountId: 8, accountType: "Organization" },
   ]);
   await db.insert(users).values([
-    { id: "owner", name: "Olive Owner", email: "owner@example.com" },
-    { id: "jane", name: "Jane Admin", email: "jane@example.com" },
-    { id: "sam", name: "Sam Member", email: "sam@example.com" },
-    { id: "max", name: "Max Member", email: "max@example.com" },
-    { id: "rita", name: "Rita Reader", email: "rita@example.com" },
+    { id: "owner", name: "Olive Owner", email: "owner@example.com", emailVerified: true },
+    { id: "jane", name: "Jane Admin", email: "jane@example.com", emailVerified: true },
+    { id: "sam", name: "Sam Member", email: "sam@example.com", emailVerified: true },
+    { id: "max", name: "Max Member", email: "max@example.com", emailVerified: true },
+    { id: "rita", name: "Rita Reader", email: "rita@example.com", emailVerified: true },
   ]);
   const ws = await createAccountWithWorkspace(db, { userId: "owner", accountName: "Acme", workspaceName: "Website" });
   await db.insert(workspaceMembers).values([
@@ -127,7 +127,8 @@ export async function setupWorkspace(database: Database) {
     { workspaceId: ws.workspaceId, userId: "max", role: "member" },
     { workspaceId: ws.workspaceId, userId: "rita", role: "read_only" },
   ]);
-  // jane and sam linked GitHub; max, rita, and the owner did not.
+  // jane and sam linked GitHub; max, rita, and the owner did not. Emails are verified: Better
+  // Auth deletes linked identities of an unverified user when they first sign in by code.
   await db.insert(authIdentities).values([
     { id: "ident-jane", accountId: "1001", providerId: "github", userId: "jane", accessTokenExpiresAt: new Date(Date.now() + 3_600_000) },
     { id: "ident-sam", accountId: "1002", providerId: "github", userId: "sam", accessTokenExpiresAt: new Date(Date.now() + 3_600_000) },
