@@ -13,7 +13,7 @@ export async function requireUser(path: string) {
 /** The user's access to a workspace; 404 when they have none. */
 export async function requireWorkspacePage(workspaceId: string, path: string) {
   const user = await requireUser(path);
-  const { database } = getDeps();
+  const { database } = await getDeps();
   const access = await getWorkspaceAccess(database.db, user.id, workspaceId);
   if (!access) notFound();
   return { user, access, db: database.db };

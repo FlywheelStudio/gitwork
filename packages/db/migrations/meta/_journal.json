@@ -15,6 +15,20 @@
       "when": 1792101428785,
       "tag": "0001_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792103373622,
+      "tag": "0002_github",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792104568386,
+      "tag": "0003_resumable_sweep",
+      "breakpoints": true
     }
   ]
 }

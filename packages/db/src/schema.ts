@@ -185,3 +185,193 @@ export const invites = sqliteTable(
     check("invites_email_lower_ck", sql`${t.email} = lower(${t.email})`),
   ],
 );
+
+// ---------------------------------------------------------------------------------------------
+// GitHub App and installations (Phase 2). Secrets are sealed with the secret box (AES-GCM).
+// ---------------------------------------------------------------------------------------------
+
+/** The instance's GitHub App, created by the manifest flow. At most one row (id = 1). */
+export const githubApp = sqliteTable(
+  "github_app",
+  {
+    id: integer("id").primaryKey(),
+    appId: text("app_id").notNull(),
+    slug: text("slug").notNull(),
+    clientId: text("client_id").notNull(),
+    clientSecret: text("client_secret").notNull(),
+    webhookSecret: text("webhook_secret").notNull(),
+    privateKey: text("private_key").notNull(),
+    htmlUrl: text("html_url").notNull(),
+    ownerLogin: text("owner_login").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [check("github_app_singleton_ck", sql`${t.id} = 1`)],
+);
+
+/** One-time `state` values for the manifest flow, bound to the admin who started it. */
+export const githubManifestStates = sqliteTable("github_manifest_states", {
+  stateHash: text("state_hash").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  usedAt: integer("used_at", { mode: "timestamp_ms" }),
+});
+
+export const githubInstallations = sqliteTable("github_installations", {
+  id: integer("id").primaryKey(),
+  accountLogin: text("account_login").notNull(),
+  accountId: integer("account_id").notNull(),
+  accountType: text("account_type").notNull(),
+  repositorySelection: text("repository_selection"),
+  suspendedAt: integer("suspended_at", { mode: "timestamp_ms" }),
+  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** Installation access tokens, shared by all isolates until shortly before they expire. */
+export const githubInstallationTokens = sqliteTable("github_installation_tokens", {
+  installationId: integer("installation_id").primaryKey(),
+  token: text("token").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+/** Processed webhook deliveries. Written in the same batch as the cache changes. */
+export const githubWebhookDeliveries = sqliteTable("github_webhook_deliveries", {
+  deliveryId: text("delivery_id").primaryKey(),
+  event: text("event").notNull(),
+  action: text("action"),
+  installationId: integer("installation_id"),
+  receivedAt: createdAt(),
+});
+
+// ---------------------------------------------------------------------------------------------
+// Cache of GitHub data (decision 010). Writes are guarded by GitHub's updated_at; deletes are
+// permanent tombstones. `available = false` hides rows the App can no longer reach.
+// ---------------------------------------------------------------------------------------------
+
+export const ghRepos = sqliteTable(
+  "gh_repos",
+  {
+    nodeId: text("node_id").primaryKey(),
+    githubId: integer("github_id").notNull().unique(),
+    installationId: integer("installation_id").notNull(),
+    owner: text("owner").notNull(),
+    name: text("name").notNull(),
+    fullName: text("full_name").notNull(),
+    private: integer("private", { mode: "boolean" }).notNull(),
+    defaultBranch: text("default_branch"),
+    archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+    htmlUrl: text("html_url").notNull(),
+    available: integer("available", { mode: "boolean" }).notNull().default(true),
+    syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("gh_repos_installation_idx").on(t.installationId)],
+);
+
+export const ghIssues = sqliteTable(
+  "gh_issues",
+  {
+    nodeId: text("node_id").primaryKey(),
+    repoNodeId: text("repo_node_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    state: text("state").notNull(),
+    stateReason: text("state_reason"),
+    labels: text("labels", { mode: "json" }).$type<{ name: string; color: string }[]>().notNull(),
+    assignees: text("assignees", { mode: "json" }).$type<{ login: string; avatarUrl: string }[]>().notNull(),
+    authorLogin: text("author_login"),
+    issueType: text("issue_type"),
+    htmlUrl: text("html_url").notNull(),
+    createdAtGh: integer("created_at_gh", { mode: "timestamp_ms" }).notNull(),
+    closedAtGh: integer("closed_at_gh", { mode: "timestamp_ms" }),
+    githubUpdatedAt: integer("github_updated_at", { mode: "timestamp_ms" }).notNull(),
+    deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
+    syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [uniqueIndex("gh_issues_repo_number_uq").on(t.repoNodeId, t.number)],
+);
+
+export const ghProjects = sqliteTable("gh_projects", {
+  nodeId: text("node_id").primaryKey(),
+  installationId: integer("installation_id").notNull(),
+  ownerLogin: text("owner_login").notNull(),
+  number: integer("number").notNull(),
+  title: text("title").notNull(),
+  closed: integer("closed", { mode: "boolean" }).notNull().default(false),
+  url: text("url").notNull(),
+  available: integer("available", { mode: "boolean" }).notNull().default(true),
+  syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export const ghProjectFields = sqliteTable(
+  "gh_project_fields",
+  {
+    nodeId: text("node_id").primaryKey(),
+    projectNodeId: text("project_node_id").notNull(),
+    name: text("name").notNull(),
+    dataType: text("data_type").notNull(),
+    /** Single-select options or iteration configuration, as GitHub returns them. */
+    config: text("config", { mode: "json" }).$type<unknown>(),
+    syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("gh_project_fields_project_idx").on(t.projectNodeId)],
+);
+
+export type ProjectFieldValue =
+  | { type: "text"; text: string }
+  | { type: "number"; number: number }
+  | { type: "date"; date: string }
+  | { type: "single_select"; optionId: string; name: string }
+  | { type: "iteration"; iterationId: string; title: string; startDate: string; duration: number };
+
+export const ghProjectItems = sqliteTable(
+  "gh_project_items",
+  {
+    nodeId: text("node_id").primaryKey(),
+    projectNodeId: text("project_node_id").notNull(),
+    contentType: text("content_type").notNull(),
+    contentNodeId: text("content_node_id"),
+    draftTitle: text("draft_title"),
+    draftBody: text("draft_body"),
+    /** Keyed by field node id. */
+    fieldValues: text("field_values", { mode: "json" }).$type<Record<string, ProjectFieldValue>>().notNull(),
+    archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+    githubUpdatedAt: integer("github_updated_at", { mode: "timestamp_ms" }).notNull(),
+    deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
+    syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("gh_project_items_project_idx").on(t.projectNodeId), index("gh_project_items_content_idx").on(t.contentNodeId)],
+);
+
+/** What reconcile keeps current. Phase 3 adds targets when a workspace links a board and repos. */
+export const ghSyncTargets = sqliteTable(
+  "gh_sync_targets",
+  {
+    kind: text("kind", { enum: ["repo", "project"] }).notNull(),
+    nodeId: text("node_id").notNull(),
+    installationId: integer("installation_id").notNull(),
+    /** Repo: "owner/name". Project: "owner#number". */
+    locator: text("locator").notNull(),
+    /** Incremental cursor: GitHub `updated_at` reached so far (repos) or last full listing (boards). */
+    lastSyncedAt: integer("last_synced_at", { mode: "timestamp_ms" }),
+    /** When the last deletion sweep finished. */
+    lastFullSyncAt: integer("last_full_sync_at", { mode: "timestamp_ms" }),
+    /** A deletion sweep in progress: when it started, and where to continue (page URL or cursor). */
+    sweepStartedAt: integer("sweep_started_at", { mode: "timestamp_ms" }),
+    sweepCursor: text("sweep_cursor"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.kind, t.nodeId] }),
+    check("gh_sync_targets_kind_ck", sql`${t.kind} IN ('repo', 'project')`),
+  ],
+);
+
+/** A lease so overlapping cron runs or several Node instances never reconcile at once. */
+export const syncLeases = sqliteTable("sync_leases", {
+  name: text("name").primaryKey(),
+  holder: text("holder").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+});

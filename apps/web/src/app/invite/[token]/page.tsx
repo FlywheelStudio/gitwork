@@ -19,7 +19,7 @@ export default async function InvitePage({ params }: PageProps<"/invite/[token]"
   await connection();
   let invite;
   try {
-    invite = await getInvitePreview(getDeps().database.db, token);
+    invite = await getInvitePreview((await getDeps()).database.db, token);
   } catch (error) {
     return <Shell>{messageOf(error)}</Shell>;
   }

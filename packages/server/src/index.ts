@@ -34,3 +34,19 @@ export {
 export { type MemberView, changeMemberRole, listMembers, removeMember } from "./services/members";
 export { type ApiDeps, createApiHandler } from "./api/router";
 export { handleApiRequest } from "./api/routes";
+export { GitHubClient, GitHubError, GitHubRateLimitError } from "./github/client";
+export { type GitHubAppConfig, loadGitHubAppConfig } from "./github/config";
+export { SecretBoxError, type SecretBox, createSecretBox } from "./github/crypto";
+export { type ReconcileResult, reconcile } from "./github/reconcile";
+export {
+  buildManifest,
+  completeManifestFlow,
+  confirmInstallation,
+  installUrl,
+  isInstanceAdmin,
+  parseAdminEmails,
+  removeGitHubApp,
+  startManifestFlow,
+} from "./github/setup";
+export { handleGitHubWebhook } from "./github/webhooks";
+export { type RequestDepsInput, createRequestDeps } from "./deps";

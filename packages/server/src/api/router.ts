@@ -6,6 +6,9 @@ import type { Database } from "@gitwork/db";
 import { z } from "zod";
 import type { Auth } from "../auth";
 import type { EmailSender } from "../email";
+import type { GitHubClient } from "../github/client";
+import type { GitHubAppConfig } from "../github/config";
+import type { SecretBox } from "../github/crypto";
 import { ServiceError } from "../errors";
 
 export interface ApiDeps {
@@ -13,6 +16,13 @@ export interface ApiDeps {
   auth: Auth;
   email: EmailSender;
   baseURL: string;
+  /** Lowercase INSTANCE_ADMIN_EMAILS. */
+  instanceAdminEmails?: string[];
+  box?: SecretBox;
+  /** The App and a client for it; null until setup creates the App. */
+  github?: { app: GitHubAppConfig; client: GitHubClient } | null;
+  /** Set when a stored App exists but cannot be decrypted. */
+  githubError?: "undecryptable" | null;
 }
 
 export interface Session {
@@ -29,7 +39,7 @@ export interface RouteContext<P extends string = string> {
 }
 
 interface Route {
-  method: "GET" | "POST" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   pattern: string;
   auth: boolean;
   body?: z.ZodType;

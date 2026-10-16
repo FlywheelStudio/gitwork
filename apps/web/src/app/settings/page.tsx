@@ -1,14 +1,15 @@
 import { hasLinkedGitHub } from "@gitwork/server";
 import { Header } from "@/components/header";
 import { Card } from "@/components/ui";
-import { getConfig, getDeps } from "@/server/context";
+import { getDeps } from "@/server/context";
 import { requireUser } from "@/server/pages";
 import { LinkGitHubButton } from "./link-github";
 
 export default async function SettingsPage() {
   const user = await requireUser("/settings");
-  const linked = await hasLinkedGitHub(getDeps().database.db, user.id);
-  const githubConfigured = getConfig().github !== undefined;
+  const deps = await getDeps();
+  const linked = await hasLinkedGitHub(deps.database.db, user.id);
+  const githubConfigured = deps.github !== null || deps.auth.options.socialProviders?.github !== undefined;
 
   return (
     <>

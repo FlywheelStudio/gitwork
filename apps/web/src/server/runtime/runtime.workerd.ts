@@ -24,3 +24,6 @@ export function getEmailSender(): EmailSender {
   }
   return unconfiguredSender();
 }
+
+/** Workers: the Cron Trigger in worker.ts runs reconcile. Nothing to start here. */
+export function startScheduler(): void {}
