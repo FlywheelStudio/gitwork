@@ -1,7 +1,7 @@
 import { confirmInstallation } from "@gitwork/server";
 import Link from "next/link";
 import { Header } from "@/components/header";
-import { Card } from "@/components/ui";
+import { Card } from "@/components/kit";
 import { getDeps } from "@/server/context";
 import { requireUser } from "@/server/pages";
 

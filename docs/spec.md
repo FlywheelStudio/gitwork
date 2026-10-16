@@ -50,6 +50,8 @@ Each has a record in `docs/decisions/`.
 | 017 | Better Auth for identity only. GitHub link needed for GitHub tasks only. Sign-up policy is an instance setting. |
 | 018 | Every member, Read Only included, sees all members' names and emails. |
 | 019 | Instance admins (`INSTANCE_ADMIN_EMAILS`) and email come from env; `/setup` creates the GitHub App. |
+| 020 | Linking a board and repos is checked with the linking user's own GitHub token; one installation per workspace. |
+| 021 | Task writes: user token first, the App when GitHub refuses; synchronous; audit row per write. |
 
 ## Roles
 

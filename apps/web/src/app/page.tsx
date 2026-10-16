@@ -1,7 +1,7 @@
 import { listMyWorkspaces } from "@gitwork/server";
 import Link from "next/link";
 import { Header } from "@/components/header";
-import { ROLE_LABEL } from "@/components/ui";
+import { ROLE_LABEL } from "@/components/kit";
 import { getDeps, isAdmin } from "@/server/context";
 import { requireUser } from "@/server/pages";
 import { Onboarding } from "./onboarding";

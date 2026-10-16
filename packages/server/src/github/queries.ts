@@ -2,13 +2,16 @@
 
 const FIELD_REF = "field { ... on ProjectV2FieldCommon { id } }";
 
+/** Sub-issue parent and "blocked by" (first 25). Stored in gh_issue_links. */
+const ISSUE_LINKS = "id parent { id } blockedBy(first: 25) { nodes { id } }";
+
 export const ITEM_FIELDS = `
   id
   type
   isArchived
   updatedAt
   content {
-    ... on Issue { id }
+    ... on Issue { ${ISSUE_LINKS} }
     ... on PullRequest { id }
     ... on DraftIssue { id title body }
   }
@@ -92,4 +95,17 @@ export const VERIFY_NODES = `
 
 export interface VerifyNodesResult {
   nodes: ({ id: string; repository?: { id: string }; project?: { id: string } } | null)[];
+}
+
+/** Refetches links after sub_issues / issue_dependencies webhooks. */
+export const ISSUE_LINKS_QUERY = `
+  query IssueLinks($ids: [ID!]!) {
+    nodes(ids: $ids) { ... on Issue { ${ISSUE_LINKS} } }
+  }
+`;
+
+export interface IssueLinksNode {
+  id: string;
+  parent?: { id: string } | null;
+  blockedBy?: { nodes: ({ id: string } | null)[] } | null;
 }

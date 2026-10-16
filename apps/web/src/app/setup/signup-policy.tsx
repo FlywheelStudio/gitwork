@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ErrorText, Select } from "@/components/ui";
+import { ErrorText, Select } from "@/components/kit";
 import { api } from "@/lib/api";
 
 export function SignupPolicy({ initial }: { initial: "open" | "invite-only" }) {

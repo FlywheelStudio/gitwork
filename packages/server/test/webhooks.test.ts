@@ -1,4 +1,4 @@
-import { type Database, ghIssues, ghProjectItems, ghRepos, ghSyncTargets, githubInstallationTokens, githubInstallations, githubWebhookDeliveries } from "@gitwork/db";
+import { type Database, ghIssueLinks, ghIssues, ghProjectItems, ghRepos, ghSyncTargets, githubInstallationTokens, githubInstallations, githubWebhookDeliveries } from "@gitwork/db";
 import { type TestDriver, allTestDrivers } from "@gitwork/db/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -172,5 +172,30 @@ describe.each(drivers)("GitHub webhooks on $name", (driver: TestDriver) => {
       await deliver("projects_v2_item", itemEvent("deleted", "PVTI_1"));
       expect((await ctx.db.select().from(ghProjectItems))[0]?.deleted).toBe(true);
     });
+  });
+  it("refetches links from GitHub on sub_issues and issue_dependencies events", async () => {
+    ctx.fake.links.set("I_child", { parent: "I_parent", blockedBy: ["I_blocker"] });
+    const res = await deliver("sub_issues", {
+      action: "parent_issue_added",
+      installation: { id: INSTALLATION.id },
+      repository: REPO,
+      // The payload's own claim is ignored; GitHub's current answer is stored.
+      parent_issue: { node_id: "I_parent", number: 1 },
+      sub_issue: { node_id: "I_child", number: 2 },
+    });
+    expect(await res.json()).toMatchObject({ status: "processed" });
+    const rows = await ctx.db.select().from(ghIssueLinks);
+    expect(rows.find((r) => r.issueNodeId === "I_child")).toMatchObject({ parentNodeId: "I_parent", blockedBy: ["I_blocker"] });
+    expect(rows.find((r) => r.issueNodeId === "I_parent")).toMatchObject({ parentNodeId: null, blockedBy: [] });
+
+    ctx.fake.links.set("I_child", { parent: "I_parent", blockedBy: [] });
+    await deliver("issue_dependencies", {
+      action: "blocked_by_removed",
+      installation: { id: INSTALLATION.id },
+      repository: REPO,
+      blocked_issue: { node_id: "I_child", number: 2 },
+      blocking_issue: { node_id: "I_blocker", number: 3 },
+    });
+    expect((await ctx.db.select().from(ghIssueLinks).where(eq(ghIssueLinks.issueNodeId, "I_child")))[0]?.blockedBy).toEqual([]);
   });
 });

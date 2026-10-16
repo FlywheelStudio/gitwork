@@ -10,12 +10,15 @@
  * Boards: Projects v2 has no "since": list every item (cursor saved per page, archived included),
  *         then verify unseen items the same way.
  */
-import { type Db, ghRepos, ghSyncTargets, syncLeases } from "@gitwork/db";
-import { and, asc, eq, lt, sql } from "drizzle-orm";
+import { type Db, ghRepos, ghSyncTargets } from "@gitwork/db";
+import { acquireLease, releaseLease } from "../leases";
+import { and, asc, eq, sql } from "drizzle-orm";
 import {
   type IssueJson,
   type RepoJson,
+  inJsonList,
   issueRow,
+  itemIssueLinks,
   markIssuesDeleted,
   markProjectItemsDeleted,
   projectItemRow,
@@ -42,6 +45,8 @@ export interface ReconcileOptions {
   maxTargets?: number;
   /** GitHub pages per target per run. Default 10. */
   maxPages?: number;
+  /** Only these targets (e.g. right after a workspace links them). */
+  onlyNodeIds?: string[];
 }
 
 export interface ReconcileResult {
@@ -59,19 +64,6 @@ const WRITE_BATCH = 100;
 
 type Target = typeof ghSyncTargets.$inferSelect;
 type Write = Parameters<Db["batch"]>[0][number];
-
-async function acquireLease(db: Db, holder: string, now: Date): Promise<boolean> {
-  const [row] = await db
-    .insert(syncLeases)
-    .values({ name: "reconcile", holder, expiresAt: new Date(now.getTime() + LEASE_MS) })
-    .onConflictDoUpdate({
-      target: syncLeases.name,
-      set: { holder, expiresAt: new Date(now.getTime() + LEASE_MS) },
-      setWhere: lt(syncLeases.expiresAt, now),
-    })
-    .returning({ holder: syncLeases.holder });
-  return row?.holder === holder;
-}
 
 async function write(db: Db, writes: Write[]) {
   for (let i = 0; i < writes.length; i += WRITE_BATCH) {
@@ -93,11 +85,12 @@ export async function reconcile(options: ReconcileOptions): Promise<ReconcileRes
   const { db, holder } = options;
   const now = options.now ?? (() => new Date());
   const result: ReconcileResult = { synced: [], failed: [], rateLimited: false };
-  if (!(await acquireLease(db, holder, now()))) return { ...result, skipped: "lease_held" };
+  if (!(await acquireLease(db, "reconcile", holder, LEASE_MS, now()))) return { ...result, skipped: "lease_held" };
   try {
     const targets = await db
       .select()
       .from(ghSyncTargets)
+      .where(options.onlyNodeIds ? inJsonList(ghSyncTargets.nodeId, options.onlyNodeIds) : undefined)
       .orderBy(sql`${ghSyncTargets.lastSyncedAt} IS NOT NULL`, asc(ghSyncTargets.lastSyncedAt))
       .limit(options.maxTargets ?? 3);
     for (const target of targets) {
@@ -114,7 +107,7 @@ export async function reconcile(options: ReconcileOptions): Promise<ReconcileRes
       }
     }
   } finally {
-    await db.delete(syncLeases).where(and(eq(syncLeases.name, "reconcile"), eq(syncLeases.holder, holder)));
+    await releaseLease(db, "reconcile", holder);
   }
   return result;
 }
@@ -257,6 +250,7 @@ async function syncProject(options: ReconcileOptions, target: Target, now: () =>
     }
     const items = project.items.nodes;
     writes.push(...items.map((n) => upsertProjectItem(db, projectItemRow(project.id, n, at), "fresh")));
+    writes.push(...items.flatMap((n) => itemIssueLinks(db, n, at)));
     if (items.length > 0) writes.push(touchProjectItems(db, items.map((i) => i.id), at));
     await write(db, writes);
     complete = !project.items.pageInfo.hasNextPage;

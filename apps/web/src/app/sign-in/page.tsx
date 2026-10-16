@@ -1,6 +1,6 @@
 import { APP_NAME } from "@gitwork/core";
 import { Suspense } from "react";
-import { Card } from "@/components/ui";
+import { Card } from "@/components/kit";
 import { SignInForm } from "./sign-in-form";
 
 export default function SignInPage() {

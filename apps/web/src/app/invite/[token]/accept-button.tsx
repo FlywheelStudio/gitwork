@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, ErrorText } from "@/components/ui";
+import { Button, ErrorText } from "@/components/kit";
 import { api } from "@/lib/api";
 
 export function AcceptButton({ token }: { token: string }) {

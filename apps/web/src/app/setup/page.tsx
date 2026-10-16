@@ -1,7 +1,7 @@
 import { getSignupPolicy } from "@gitwork/server";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/header";
-import { Card } from "@/components/ui";
+import { Card } from "@/components/kit";
 import { getDeps, isAdmin } from "@/server/context";
 import { requireUser } from "@/server/pages";
 import { CreateAppForm } from "./create-app-form";

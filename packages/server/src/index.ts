@@ -32,6 +32,17 @@ export {
   revokeInvite,
 } from "./services/invites";
 export { type MemberView, changeMemberRole, listMembers, removeMember } from "./services/members";
+export { getWorkspaceLink } from "./services/link";
+export {
+  type BoardView,
+  type FieldMapping,
+  type FieldView,
+  type TaskDetail,
+  type TaskView,
+  getTask,
+  listTasks,
+  resolveMapping,
+} from "./services/tasks";
 export { type ApiDeps, createApiHandler } from "./api/router";
 export { handleApiRequest } from "./api/routes";
 export { GitHubClient, GitHubError, GitHubRateLimitError } from "./github/client";

@@ -10,6 +10,7 @@ import type { GitHubClient } from "../github/client";
 import type { GitHubAppConfig } from "../github/config";
 import type { SecretBox } from "../github/crypto";
 import { ServiceError } from "../errors";
+import { GitHubError, GitHubRateLimitError } from "../github/client";
 
 export interface ApiDeps {
   database: Database;
@@ -116,6 +117,15 @@ export function createApiHandler(routes: Route[], prefix = "/api/v1") {
         return result === undefined ? new Response(null, { status: 204 }) : json(200, result);
       } catch (e) {
         if (e instanceof ServiceError) return error(e.status, e.code, e.message);
+        if (e instanceof GitHubRateLimitError) {
+          const res = error(503, "github_rate_limited", "GitHub is rate limiting this instance. Try again shortly.");
+          res.headers.set("retry-after", String(Math.max(1, Math.ceil((e.retryAt - Date.now()) / 1000))));
+          return res;
+        }
+        if (e instanceof GitHubError) {
+          console.error("[api] GitHub", e.status, e.message);
+          return error(502, "github_error", "GitHub refused the request.");
+        }
         console.error("[api]", e);
         return error(500, "internal", "Something went wrong.");
       }

@@ -12,7 +12,7 @@ import { forbidden, notFound } from "../errors";
 
 export interface WorkspaceAccess {
   userId: string;
-  workspace: { id: string; accountId: string; name: string };
+  workspace: { id: string; accountId: string; name: string; hideLabel: string | null };
   role: Role;
   isAccountOwner: boolean;
   actor: Actor;
@@ -49,7 +49,7 @@ export async function getWorkspaceAccess(db: Db, userId: string, workspaceId: st
   if (!role) return null;
   return {
     userId,
-    workspace: { id: workspace.id, accountId: workspace.accountId, name: workspace.name },
+    workspace: { id: workspace.id, accountId: workspace.accountId, name: workspace.name, hideLabel: workspace.hideLabel },
     role,
     isAccountOwner: owner !== undefined,
     actor: { role, hasGitHub },

@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, Card, ErrorText, Input, Label, ROLE_LABEL, Select } from "@/components/ui";
+import { Button, Card, ErrorText, Input, Label, ROLE_LABEL, Select } from "@/components/kit";
 import { api } from "@/lib/api";
 
 interface Member {

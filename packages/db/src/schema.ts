@@ -136,6 +136,8 @@ export const workspaces = sqliteTable(
     name: text("name").notNull(),
     readOnlyCanComment: integer("read_only_can_comment", { mode: "boolean" }).notNull().default(false),
     showDraftsToReadOnly: integer("show_drafts_to_read_only", { mode: "boolean" }).notNull().default(false),
+    /** Issues with this label are hidden from Read Only (decision 012). Compared without case. */
+    hideLabel: text("hide_label"),
     createdAt: createdAt(),
   },
   (t) => [index("workspaces_account_id_idx").on(t.accountId)],
@@ -375,3 +377,73 @@ export const syncLeases = sqliteTable("sync_leases", {
   holder: text("holder").notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 });
+
+// ---------------------------------------------------------------------------------------------
+// Workspace ↔ GitHub link (Phase 3, decisions 006, 009, 020).
+// ---------------------------------------------------------------------------------------------
+
+/** One installation and one board per workspace. Field mapping: null = auto-detect. */
+export const workspaceGithub = sqliteTable("workspace_github", {
+  workspaceId: text("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  installationId: integer("installation_id").notNull(),
+  projectNodeId: text("project_node_id").notNull(),
+  kanbanFieldId: text("kanban_field_id"),
+  startFieldId: text("start_field_id"),
+  targetFieldId: text("target_field_id"),
+  iterationFieldId: text("iteration_field_id"),
+  linkedBy: text("linked_by").references(() => users.id, { onDelete: "set null" }),
+  linkedAt: integer("linked_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+/** The repos a workspace shows. A board item from any other repo is filtered out (006). */
+export const workspaceRepos = sqliteTable(
+  "workspace_repos",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    repoNodeId: text("repo_node_id").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.repoNodeId] }), index("workspace_repos_repo_idx").on(t.repoNodeId)],
+);
+
+/** Sub-issue parent and "blocked by" links, refetched from GitHub as a whole. */
+export const ghIssueLinks = sqliteTable(
+  "gh_issue_links",
+  {
+    issueNodeId: text("issue_node_id").primaryKey(),
+    parentNodeId: text("parent_node_id"),
+    blockedBy: text("blocked_by", { mode: "json" }).$type<string[]>().notNull(),
+    syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("gh_issue_links_parent_idx").on(t.parentNodeId)],
+);
+
+/**
+ * Every write (decision 008). Rows outlive users and workspaces, so both references set null.
+ * `via`: "user" = the user's own GitHub token, "app" = a bot write, "local" = no GitHub call.
+ */
+export const auditLog = sqliteTable(
+  "audit_log",
+  {
+    id: text("id").primaryKey(),
+    at: integer("at", { mode: "timestamp_ms" }).notNull(),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    workspaceId: text("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    via: text("via", { enum: ["user", "app", "local"] }).notNull(),
+    repoNodeId: text("repo_node_id"),
+    /** Issue node id, project item id, file path, or workspace id. */
+    target: text("target"),
+    commitSha: text("commit_sha"),
+    detail: text("detail", { mode: "json" }).$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    index("audit_log_workspace_at_idx").on(t.workspaceId, t.at),
+    index("audit_log_user_at_idx").on(t.userId, t.at),
+    index("audit_log_target_idx").on(t.target),
+    check("audit_log_via_ck", sql`${t.via} IN ('user', 'app', 'local')`),
+  ],
+);
