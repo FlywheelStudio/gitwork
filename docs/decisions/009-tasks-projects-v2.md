@@ -21,3 +21,5 @@ Projects v2 as the task source.
 ## Consequences
 - Requires the org Projects permission, so org-owned boards only (006).
 - Projects v2 webhooks are in public preview; reconcile covers gaps (010).
+- Field mapping has "Auto-detect" (by GitHub's usual field names) but no "none": a mapped field can
+  be overridden, not switched off. (Owner confirmed 2026-10-16.)
