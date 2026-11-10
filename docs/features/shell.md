@@ -11,7 +11,8 @@ Shipped 2026-11-10 (roadmap Track D). Branch `feature/shell`, on top of Tracks B
 - **Dense, grouped list.** One 40 px line per task: priority bars, ID, status ring (check when
   closed), title, labels, due date (red when overdue), assignee avatars. Grouped by status in the
   field's option order, with counts. Sub-issues nest inside their group.
-- **Virtualized list.** Only rows near the viewport are in the DOM (37 of 2,000). `J`/`K` scroll
+- **Virtualized list and timeline.** Only rows near the viewport are in the DOM (37 and 40 of
+  2,000). `J`/`K` scroll
   the focused row into view, however far.
 - **Board cards** show priority, ID, assignees, title (two lines), labels, and due date. Long
   columns show 50 cards and a "Show 50 more" button.
@@ -28,32 +29,39 @@ Shipped 2026-11-10 (roadmap Track D). Branch `feature/shell`, on top of Tracks B
 | `…/workspace-shell.tsx` | `BoardProvider`, sidebar, panel, command layer, notices. |
 | `…/board-context.tsx` | Split context: `useBoardApi()` (stable functions, the stores) and state (panel, notice, view). Rows use only the stable part. |
 | `apps/web/src/lib/focus-store.ts` | Focus and selection outside React state; each row subscribes to its own booleans (`useRowFocus`). |
-| `…/tasks/task-list.tsx` | Grouping, virtualization (`Viewport`: window scroll in 100 px steps as an external store). |
+| `…/tasks/task-list.tsx` | Grouping and virtualization of the list. |
+| `apps/web/src/lib/viewport.ts` | `useViewport()`: window scroll in 100 px steps as an external store; used by the list and the timeline. |
 | `…/tasks/task-bits.tsx` | `StatusIcon`, `PriorityIcon`, `Labels`, `Avatars`, `DueDate`. |
 | `packages/server/src/services/board-sync.ts` | `viewer.githubLinked` in the snapshot (the viewer's own state; decision 033's ETag reasoning holds). |
 | `apps/web/src/app/layout.tsx` | The dark-mode script. |
 
 ## Measured (2,000 tasks, local Chromium, `e2e/speed.spec.ts`)
 
-| | Track B | Track C | Track D |
-|---|---|---|---|
-| Switch to list | 23 ms | 45 ms | **14–18 ms** |
-| Switch to board | 53 ms | 105 ms | **7 ms** |
-| Switch to timeline | 60 ms | 58 ms | 27–32 ms |
-| `J` focus move | — | — | **0.3 ms** median, 0.6 ms worst |
-| List rows in the DOM | 2,000 | 2,000 | 37 |
+| | Track B | Track C | Track D | + timeline virtualization |
+|---|---|---|---|---|
+| Switch to list | 23 ms | 45 ms | 14–18 ms | **6 ms** |
+| Switch to board | 53 ms | 105 ms | 7 ms | **7 ms** |
+| Switch to timeline | 60 ms | 58 ms | 27–32 ms | **10 ms** |
+| `J` focus move | — | — | 0.3 ms median, 0.6 ms worst | 0.3 ms |
+| Rows in the DOM (list / timeline) | 2,000 / 2,000 | 2,000 / 2,000 | 37 / 2,000 | 37 / 40 |
 | `/sync` 200 / 304 | — | — | 943 KiB uncompressed, ~60 ms / ~50 ms |
 
 Track C's slowdown came from every row reading the whole board context: any focus or notice
 change re-rendered all rows. The split context and the focus store fixed it. CI budgets: 150 ms
-per switch, 16 ms per focus move. The timeline is not virtualized yet.
+per switch, 16 ms per focus move. Every view now meets the roadmap's 16 ms target locally.
+
+**Timeline virtualization** (`lib/viewport.ts`, shared with the list): only labels and bars near
+the viewport are drawn; a dependency arrow is drawn when it crosses the drawn rows, even if one
+end is off screen. `J`/`K` scroll the focused row into view. The unscheduled list shows 100 tasks
+and a "Show more" button.
 
 ## Testing
 - `focus-store.test.ts`; `api-tasks.test.ts` checks `viewer.githubLinked` for linked and unlinked users.
 - E2E `keyboard.spec.ts` adds: keys and the menu on the Members page; the store survives a round
   trip (focus set on Members is still there on Tasks, with no document request); the write-path
   line; dark mode on and off with the system setting; Read Only sees no write-path line.
-- E2E `speed.spec.ts` adds: fewer than 150 rows in the DOM; 100 `J` presses reach task 300 and
+- E2E `speed.spec.ts` adds: fewer than 150 rows in the DOM (list and timeline, bars equal labels);
+  200 `J` presses on the timeline reach task 200 and keep it in view; 100 `J` presses reach task 300 and
   keep it in view; the `/sync` size and time; `J` latency. The optimistic tests watch the panel's
   Status field and the group counts, because rows move between groups.
 

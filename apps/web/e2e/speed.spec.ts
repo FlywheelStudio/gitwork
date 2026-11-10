@@ -186,6 +186,20 @@ test("the list renders only rows near the viewport, and J reaches rows far below
   expect(await focused.getAttribute("data-task-id")).toBe("PVTI_big300"); // the 100th Todo task: 3, 6, …, 300
 });
 
+test("the timeline draws only rows near the viewport, and J reaches rows far below", async ({ page }) => {
+  await page.goto(`/w/${workspaceId}?view=timeline`);
+  await expect(page.getByTestId("timeline-row").first()).toBeVisible();
+  const labels = await page.getByTestId("timeline-row").count();
+  const bars = await page.getByTestId("timeline-bar").count();
+  console.log(`[speed] timeline rows in the DOM: ${labels} labels, ${bars} bars of ${TASKS}`);
+  expect(labels).toBeLessThan(150);
+  expect(bars).toBe(labels);
+  for (let i = 0; i < 200; i++) await page.keyboard.press("j");
+  const focused = page.locator('[data-focused="true"]');
+  await expect(focused).toBeInViewport();
+  expect(await focused.getAttribute("data-task-id")).toBe("PVTI_big200"); // timeline order is board order
+});
+
 test("the first poll is a 304: the page and /sync agree", async ({ page }) => {
   await page.goto(`/w/${workspaceId}`);
   await expect(page.getByTestId("task-row").first()).toBeVisible();

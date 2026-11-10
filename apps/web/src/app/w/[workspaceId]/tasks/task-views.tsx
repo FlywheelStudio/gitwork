@@ -1,7 +1,8 @@
 "use client";
 import type { FieldView, TaskView } from "@gitwork/server";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useViewport } from "@/lib/viewport";
 import { Badge } from "@/components/ui/badge";
 import { useBoard, useBoardApi, useRowFocus, useSnapshot, useTaskActions } from "../board-context";
 import { optionOf, spanOf, treeOrder } from "./fields";
@@ -202,24 +203,46 @@ const DAY = 86_400_000;
 const ROW = 36;
 const DAY_PX = 24;
 const BAR = 20;
+const TIMELINE_OVERSCAN = 800;
 
 export function TimelineView() {
   const { tasks, mapping } = useBoard();
+  const { focus } = useBoardApi();
   // Read the clock once per mount, not on every render.
   const [now] = useState(() => Date.now());
-  const scheduled = treeOrder(tasks).flatMap(({ task }) => {
-    const span = spanOf(task, mapping);
-    return span ? [{ task, ...span }] : [];
-  });
-  const unscheduled = tasks.filter((t) => !spanOf(t, mapping));
-  useOrder([...scheduled.map((s) => s.task.id), ...unscheduled.map((t) => t.id)]);
+  const [unscheduledLimit, setUnscheduledLimit] = useState(100);
+  const { scheduled, unscheduled } = useMemo(() => {
+    const scheduled = treeOrder(tasks).flatMap(({ task }) => {
+      const span = spanOf(task, mapping);
+      return span ? [{ task, ...span }] : [];
+    });
+    return { scheduled, unscheduled: tasks.filter((t) => !spanOf(t, mapping)) };
+  }, [tasks, mapping]);
+  useOrder([...scheduled.map((s) => s.task.id), ...unscheduled.slice(0, unscheduledLimit).map((t) => t.id)]);
+  // Only rows near the viewport are drawn (labels, bars, and arrows that cross them).
+  const { attach, from, to, reveal } = useViewport(TIMELINE_OVERSCAN);
+  useEffect(
+    () =>
+      focus.subscribe(() => {
+        const id = focus.getState().focusedId;
+        const i = id ? scheduled.findIndex((s) => s.task.id === id) : -1;
+        if (i !== -1) reveal(i * ROW, ROW);
+      }),
+    [focus, scheduled, reveal],
+  );
   if (!mapping.startFieldId && !mapping.targetFieldId && !mapping.iterationFieldId) {
     return <p className="text-sm text-muted-foreground">This board has no date or iteration fields. An Admin can map them in Settings.</p>;
   }
   // Two days of air on each side, starting on a Monday so week lines fall on whole days.
-  const first = scheduled.length ? Math.min(...scheduled.map((s) => s.start)) - 2 * DAY : now;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const s of scheduled) {
+    if (s.start < min) min = s.start;
+    if (s.end > max) max = s.end;
+  }
+  const first = scheduled.length ? min - 2 * DAY : now;
   const startDay = first - ((new Date(first).getUTCDay() + 6) % 7) * DAY;
-  const endDay = scheduled.length ? Math.max(...scheduled.map((s) => s.end)) + 2 * DAY : startDay + 14 * DAY;
+  const endDay = scheduled.length ? max + 2 * DAY : startDay + 14 * DAY;
   const days = Math.max(14, Math.ceil((endDay - startDay) / DAY));
   const x = (t: number) => ((t - startDay) / DAY) * DAY_PX;
   const width = days * DAY_PX;
@@ -227,6 +250,9 @@ export function TimelineView() {
   const rowOf = new Map(scheduled.map((s, i) => [s.task.id, i]));
   const weeks = Array.from({ length: Math.ceil(days / 7) }, (_, i) => startDay + i * 7 * DAY);
   const label = (t: number) => new Date(t).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
+  const firstRow = Math.max(0, Math.floor(from / ROW));
+  const lastRow = Math.min(scheduled.length - 1, Math.ceil(to / ROW));
+  const shown = scheduled.slice(firstRow, lastRow + 1).map((s, k) => ({ ...s, i: firstRow + k }));
 
   return (
     <div className="space-y-6">
@@ -236,9 +262,11 @@ export function TimelineView() {
         <div className="grid grid-cols-[minmax(10rem,16rem)_1fr] rounded-xl ring-1 ring-foreground/10">
           <div className="border-r border-foreground/10">
             <div className="h-8 border-b border-foreground/10" />
-            {scheduled.map(({ task }) => (
-              <TimelineLabel key={task.id} task={task} />
-            ))}
+            <div ref={attach} className="relative" style={{ height }}>
+              {shown.map(({ task, i }) => (
+                <TimelineLabel key={task.id} task={task} top={i * ROW} />
+              ))}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <div style={{ width }}>
@@ -261,16 +289,17 @@ export function TimelineView() {
                 {now > startDay && now < startDay + days * DAY && (
                   <line x1={x(now)} x2={x(now)} y1={0} y2={height} className="stroke-destructive/60" strokeDasharray="3 3" />
                 )}
-                {scheduled.map(({ task, start, end }, i) => (
-                  <rect key={task.id} x={x(start)} y={i * ROW + (ROW - BAR) / 2} width={Math.max(x(end) - x(start), 6)} height={BAR} rx={5} className="fill-primary/80">
+                {shown.map(({ task, start, end, i }) => (
+                  <rect key={task.id} x={x(start)} y={i * ROW + (ROW - BAR) / 2} width={Math.max(x(end) - x(start), 6)} height={BAR} rx={5} className="fill-primary/80" data-testid="timeline-bar">
                     <title>{task.title}</title>
                   </rect>
                 ))}
-                {/* Dependencies: out of the blocker's end, down, into the blocked task's start. */}
+                {/* Dependencies: out of the blocker's end, down, into the blocked task's start. Drawn when
+                    the arrow crosses the rendered rows, even if one end is off screen. */}
                 {scheduled.flatMap(({ task, start }, i) =>
                   task.blockedBy.flatMap((blocker) => {
                     const j = rowOf.get(blocker);
-                    if (j === undefined) return [];
+                    if (j === undefined || Math.max(i, j) < firstRow || Math.min(i, j) > lastRow) return [];
                     const x1 = x(scheduled[j]!.end);
                     const y1 = j * ROW + ROW / 2;
                     const x2 = x(start);
@@ -292,22 +321,32 @@ export function TimelineView() {
         <div>
           <h3 className="mb-2 text-sm font-medium">Unscheduled</h3>
           <ul className="space-y-1 text-sm">
-            {unscheduled.map((task) => (
+            {unscheduled.slice(0, unscheduledLimit).map((task) => (
               <li key={task.id} className="flex items-center gap-2">
                 <TaskLink task={task} /> <Ref task={task} />
               </li>
             ))}
           </ul>
+          {unscheduled.length > unscheduledLimit && (
+            <button type="button" className="mt-2 text-xs text-muted-foreground hover:underline" onClick={() => setUnscheduledLimit(unscheduledLimit + 100)}>
+              Show {Math.min(100, unscheduled.length - unscheduledLimit)} more of {unscheduled.length - unscheduledLimit}
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function TimelineLabel({ task }: { task: TaskView }) {
+function TimelineLabel({ task, top }: { task: TaskView; top: number }) {
   const { focused, attrs } = useTaskFocus(task.id);
   return (
-    <div {...attrs} className={`flex items-center truncate px-3 text-sm ${focused ? "bg-muted" : ""}`} style={{ height: ROW }} data-testid="timeline-row">
+    <div
+      {...attrs}
+      className={`absolute inset-x-0 flex items-center truncate px-3 text-sm ${focused ? "bg-muted shadow-[inset_2px_0_0_var(--color-primary)]" : ""}`}
+      style={{ top, height: ROW }}
+      data-testid="timeline-row"
+    >
       <TaskLink task={task} />
     </div>
   );

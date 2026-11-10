@@ -28,6 +28,7 @@ None. Next: the live GitHub check (blocked on the owner: tunnel + test repo), th
 | Track B — Speed foundation (PR #8, in review) | 2026-11-10 | [features/speed.md](features/speed.md) |
 | Track C — Keyboard and command menu (PR #9, in review) | 2026-11-10 | [features/keyboard.md](features/keyboard.md) |
 | Track D — App shell and clear UI (PR #10, in review) | 2026-11-10 | [features/shell.md](features/shell.md) |
+| Timeline virtualization, roadmap B6 (PR #11, in review) | 2026-11-10 | [features/shell.md](features/shell.md) |
 
 ## Backlog
 
@@ -44,7 +45,6 @@ Order: `docs/roadmap.md` (decisions 023–033).
 Chores:
 - **Server job queue for bulk edits (decision 027).** Bulk edits run in the browser, one by one,
   for now (features/keyboard.md). Build the queue (decision 004 adapter) before bulk edits grow.
-- Virtualize the timeline (27–32 ms per switch at 2,000 tasks; the list and board are under 16 ms).
 - **Live GitHub check (approved 2026-10-15, blocked).** Nothing in Phases 2–3 has touched real
   GitHub. The 2026-10-15 attempt stopped at two points: the session may not open a tunnel
   (`cloudflared`), and no browser was connected for GitHub's "Create GitHub App" click. Plan

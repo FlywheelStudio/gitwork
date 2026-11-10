@@ -4,7 +4,8 @@
  * virtualized — only rows near the viewport are in the DOM, so 2,000 tasks cost what 60 do.
  */
 import type { FieldView, TaskView } from "@gitwork/server";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useViewport } from "@/lib/viewport";
 import { useBoard, useBoardApi, useSnapshot } from "../board-context";
 import { optionOf, treeOrder } from "./fields";
 import { Avatars, DueDate, Labels, PriorityIcon, StatusIcon } from "./task-bits";
@@ -16,48 +17,6 @@ const OVERSCAN = 800;
 
 type Item = { kind: "header"; key: string; name: string; count: number; top: number } | { kind: "row"; task: TaskView; depth: number; top: number };
 
-/** The list's scroll position relative to the viewport, in 100 px steps (an external store). */
-class Viewport {
-  private el: HTMLElement | null = null;
-  private snap = "0:10";
-  private listeners = new Set<() => void>();
-  attach = (el: HTMLElement | null) => {
-    this.el = el;
-    this.update();
-  };
-  subscribe = (listener: () => void) => {
-    if (this.listeners.size === 0) {
-      window.addEventListener("scroll", this.update, { passive: true });
-      window.addEventListener("resize", this.update);
-    }
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-      if (this.listeners.size === 0) {
-        window.removeEventListener("scroll", this.update);
-        window.removeEventListener("resize", this.update);
-      }
-    };
-  };
-  update = () => {
-    if (!this.el) return;
-    const top = this.el.getBoundingClientRect().top;
-    const next = `${Math.floor(-top / 100)}:${Math.ceil(window.innerHeight / 100)}`;
-    if (next === this.snap) return;
-    this.snap = next;
-    for (const l of this.listeners) l();
-  };
-  getSnapshot = () => this.snap;
-  /** Scrolls the window so a list offset is in view. */
-  reveal(offset: number, height: number) {
-    if (!this.el) return;
-    const top = this.el.getBoundingClientRect().top + offset;
-    if (top < 80) window.scrollBy({ top: top - 80 });
-    else if (top + height > window.innerHeight - 24) window.scrollBy({ top: top + height - window.innerHeight + 24 });
-  }
-}
-
-const SERVER_SNAPSHOT = () => "0:10";
 
 /** Groups by the status field, in the field's option order; tree order inside each group. */
 function buildItems(tasks: TaskView[], status: FieldView | undefined): { items: Item[]; height: number } {
@@ -89,19 +48,12 @@ export function ListView() {
   const { focus } = useBoardApi();
   const status = fields.find((f) => f.id === mapping.kanbanFieldId);
   const priority = fields.find((f) => f.dataType === "SINGLE_SELECT" && /^priority$/i.test(f.name));
-  // Methods, not the instance: the React Compiler treats an object passed as `ref` as a ref.
-  const [{ attach, subscribe, getSnapshot, reveal }] = useState(() => {
-    const v = new Viewport();
-    return { attach: v.attach, subscribe: v.subscribe, getSnapshot: v.getSnapshot, reveal: (offset: number, h: number) => v.reveal(offset, h) };
-  });
+  const { attach, from, to, reveal } = useViewport(OVERSCAN);
   const [now] = useState(() => Date.now());
   const { items, height } = useMemo(() => buildItems(tasks, status), [tasks, status]);
   const rows = useMemo(() => items.flatMap((i) => (i.kind === "row" ? [i] : [])), [items]);
   useOrder(rows.map((r) => r.task.id));
 
-  const [scrolled, screens] = useSyncExternalStore(subscribe, getSnapshot, SERVER_SNAPSHOT).split(":").map(Number) as [number, number];
-  const from = scrolled * 100 - OVERSCAN;
-  const to = (scrolled + screens) * 100 + OVERSCAN;
   const visible = items.filter((i) => i.top + (i.kind === "row" ? ROW : HEADER) >= from && i.top <= to);
 
   // J / K can move focus to a row that is not rendered: scroll it into view.
