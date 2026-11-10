@@ -52,6 +52,7 @@ Each has a record in `docs/decisions/`.
 | 019 | Instance admins (`INSTANCE_ADMIN_EMAILS`) and email come from env; `/setup` creates the GitHub App. |
 | 020 | Linking a board and repos is checked with the linking user's own GitHub token; one installation per workspace. |
 | 021 | Task writes: user token first, the App when GitHub refuses; synchronous; audit row per write. |
+| 022 | Cloudflare hosting requires the Workers Paid plan (bundle over 3 MiB). |
 
 ## Roles
 
