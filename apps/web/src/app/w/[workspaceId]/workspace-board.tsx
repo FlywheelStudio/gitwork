@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { Snapshot } from "@/lib/board-store";
 import { BoardProvider, useBoard, useBoardContext, useSnapshot, useSyncState } from "./board-context";
+import { CommandLayer } from "./command-layer";
 import { PeekPanel } from "./tasks/peek-panel";
 import { NewTaskButton } from "./tasks/new-task";
 import { KanbanView, ListView, TimelineView } from "./tasks/task-views";
@@ -39,6 +40,7 @@ function Board({ initialView }: { initialView: ViewId }) {
                 key={v.id}
                 type="button"
                 onClick={() => show(v.id)}
+                title={`${v.label} view (V then ${v.label[0]})`}
                 aria-current={v.id === view ? "page" : undefined}
                 className={`rounded-md px-3 py-1 ${v.id === view ? "bg-background font-medium shadow-xs" : "text-muted-foreground"}`}
               >
@@ -60,6 +62,7 @@ function Board({ initialView }: { initialView: ViewId }) {
       {view === "board" && <KanbanView />}
       {view === "timeline" && <TimelineView />}
       <PeekPanel />
+      <CommandLayer view={view} setView={show} />
       <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-4 flex justify-center">
         {notice && <p className="pointer-events-auto rounded-lg bg-foreground px-3 py-2 text-sm text-background shadow-lg">{notice}</p>}
       </div>

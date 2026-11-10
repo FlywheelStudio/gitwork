@@ -31,6 +31,16 @@ interface BoardContextValue {
   loadDetail: (task: TaskView) => Promise<TaskDetail>;
   notice: string | null;
   notify: (message: string) => void;
+  /** Keyboard focus in the current view, and the multi-selection (ids). */
+  focusedId: string | null;
+  setFocusedId: (id: string | null) => void;
+  selected: ReadonlySet<string>;
+  setSelected: (next: ReadonlySet<string>) => void;
+  /** The task ids in on-screen order. The visible view sets it after each render. */
+  setOrder: (ids: string[]) => void;
+  getOrder: () => string[];
+  newTaskOpen: boolean;
+  setNewTaskOpen: (open: boolean) => void;
 }
 
 const BoardContext = createContext<BoardContextValue | null>(null);
@@ -39,6 +49,10 @@ export function BoardProvider({ workspaceId, initial, etag, children }: { worksp
   const [store] = useState(() => new BoardStore(initial, etag, { fetchSnapshot: (e) => fetchSnapshot(workspaceId, e) }));
   const [peekId, setPeekId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const order = useRef<string[]>([]);
   const details = useRef(new Map<string, Promise<TaskDetail>>());
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -65,8 +79,27 @@ export function BoardProvider({ workspaceId, initial, etag, children }: { worksp
   }, []);
 
   const value = useMemo<BoardContextValue>(
-    () => ({ workspaceId, store, peekId, openPeek: setPeekId, closePeek: () => setPeekId(null), loadDetail, notice, notify }),
-    [workspaceId, store, peekId, loadDetail, notice, notify],
+    () => ({
+      workspaceId,
+      store,
+      peekId,
+      openPeek: setPeekId,
+      closePeek: () => setPeekId(null),
+      loadDetail,
+      notice,
+      notify,
+      focusedId,
+      setFocusedId,
+      selected,
+      setSelected,
+      setOrder: (ids: string[]) => {
+        order.current = ids;
+      },
+      getOrder: () => order.current,
+      newTaskOpen,
+      setNewTaskOpen,
+    }),
+    [workspaceId, store, peekId, loadDetail, notice, notify, focusedId, selected, newTaskOpen],
   );
   return <BoardContext value={value}>{children}</BoardContext>;
 }
@@ -132,6 +165,32 @@ function taskActions(workspaceId: string, store: BoardStore, notify: (message: s
     }
   }
 
+  /** One field on many tasks, one after another (GitHub rate limits). One undo step for all. */
+  async function setFieldMany(tasks: TaskView[], field: FieldView, input: FieldInput | null): Promise<void> {
+    if (tasks.length === 1) return setField(tasks[0]!, field, input);
+    const done: { task: TaskView; previous: FieldInput | null }[] = [];
+    for (const [i, task] of tasks.entries()) {
+      notify(`Updating ${field.name}: ${i + 1} of ${tasks.length}…`);
+      const previous = currentInput(field, task);
+      try {
+        await store.mutate(task.id, withField(field, input), () => patch(task.id, { fields: { [field.id]: input } }));
+        done.push({ task, previous });
+      } catch (error) {
+        notify(`Stopped after ${done.length} of ${tasks.length}: ${(error as Error).message}`);
+        break;
+      }
+    }
+    if (done.length === tasks.length) notify(`Updated ${field.name} on ${tasks.length} tasks.`);
+    if (done.length > 0) {
+      store.pushUndo({
+        label: `${field.name} change on ${done.length} tasks`,
+        run: async () => {
+          for (const { task, previous } of done) await setField(task, field, previous, false);
+        },
+      });
+    }
+  }
+
   async function undo(): Promise<void> {
     try {
       const label = await store.undo();
@@ -141,5 +200,5 @@ function taskActions(workspaceId: string, store: BoardStore, notify: (message: s
     }
   }
 
-  return { setField, setState, undo, upsert: (task: TaskView) => store.upsert(task) };
+  return { setField, setFieldMany, setState, undo, upsert: (task: TaskView) => store.upsert(task) };
 }

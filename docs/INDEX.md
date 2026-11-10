@@ -41,3 +41,4 @@
 | [features/github-app.md](features/github-app.md) | Setup wizard, GitHub App, installations, webhooks, cache, reconcile. |
 | [features/tasks.md](features/tasks.md) | Board and repo link, list / kanban / timeline, task edits, visibility filter, audit log. |
 | [features/speed.md](features/speed.md) | Client store, /sync with ETag, optimistic edits, side panel, measured budgets. |
+| [features/keyboard.md](features/keyboard.md) | Shared keymap, command menu, pickers, bulk edit with undo, shortcut sheet. |

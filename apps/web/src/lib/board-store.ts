@@ -149,6 +149,11 @@ export class BoardStore {
     this.emit();
   }
 
+  /** Records an undo step for work done outside `mutate` (a bulk edit is one step). */
+  pushUndo(entry: UndoEntry) {
+    this.undoStack.push(entry);
+  }
+
   canUndo() {
     return this.undoStack.length > 0;
   }

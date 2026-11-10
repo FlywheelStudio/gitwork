@@ -8,7 +8,7 @@ import { useBoard, useBoardContext, useTaskActions } from "../board-context";
 
 export function NewTaskButton() {
   const board = useBoard();
-  const { workspaceId, openPeek } = useBoardContext();
+  const { workspaceId, openPeek, newTaskOpen: open, setNewTaskOpen: setOpen, setFocusedId } = useBoardContext();
   const { upsert } = useTaskActions();
   const props = {
     workspaceId,
@@ -16,7 +16,6 @@ export function NewTaskButton() {
     defaultRepo: board.lastRepoNodeId,
     statusField: board.fields.find((f) => f.id === board.mapping.kanbanFieldId) ?? null,
   };
-  const [open, setOpen] = useState(false);
   const [repo, setRepo] = useState(props.defaultRepo ?? props.repos[0]?.nodeId ?? "");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -40,6 +39,7 @@ export function NewTaskButton() {
       setBody("");
       // The new task joins the store and opens beside the list: no page load.
       upsert(task);
+      setFocusedId(task.id);
       openPeek(task.id);
     } catch (err) {
       setError((err as Error).message);
@@ -51,7 +51,9 @@ export function NewTaskButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>New task</Button>
+        <Button title="New task (C)">
+          New task <kbd className="ml-1 rounded border border-primary-foreground/30 px-1 font-mono text-xs opacity-70">C</kbd>
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

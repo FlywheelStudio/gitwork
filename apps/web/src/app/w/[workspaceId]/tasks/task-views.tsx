@@ -1,7 +1,7 @@
 "use client";
 import type { TaskView } from "@gitwork/server";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useBoard, useBoardContext, useSnapshot, useTaskActions } from "../board-context";
 import { fieldText, optionOf, spanOf, treeOrder } from "./fields";
@@ -36,6 +36,37 @@ export function Ref({ task }: { task: TaskView }) {
   );
 }
 
+/** Registers the view's on-screen order, so J / K follow what the person sees. */
+function useOrder(ids: string[]) {
+  const { setOrder } = useBoardContext();
+  const key = ids.join("\n");
+  useEffect(() => {
+    setOrder(key ? key.split("\n") : []);
+  }, [setOrder, key]);
+}
+
+/** Focus ring and selection state for one task's row or card. */
+function useTaskFocus(id: string) {
+  const { focusedId, setFocusedId, selected, setSelected } = useBoardContext();
+  const toggle = () => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+  return {
+    focused: focusedId === id,
+    isSelected: selected.has(id),
+    toggle,
+    attrs: {
+      "data-task-id": id,
+      "data-focused": focusedId === id ? "true" : undefined,
+      "aria-selected": selected.has(id),
+      onClick: () => setFocusedId(id),
+    },
+  };
+}
+
 export function StateBadge({ task }: { task: TaskView }) {
   if (task.state !== "closed") return null;
   return <Badge variant="secondary">{task.stateReason === "not_planned" ? "Not planned" : "Closed"}</Badge>;
@@ -45,12 +76,17 @@ export function StateBadge({ task }: { task: TaskView }) {
 
 export function ListView() {
   const { tasks, mapping } = useBoard();
+  const rows = treeOrder(tasks);
+  useOrder(rows.map((r) => r.task.id));
   if (tasks.length === 0) return <Empty />;
   return (
     <div className="overflow-x-auto rounded-xl ring-1 ring-foreground/10">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
+            <th className="w-8 px-3 py-2">
+              <span className="sr-only">Selected</span>
+            </th>
             <th className="px-3 py-2 font-medium">Task</th>
             <th className="px-3 py-2 font-medium">Status</th>
             <th className="px-3 py-2 font-medium">Assignees</th>
@@ -58,8 +94,8 @@ export function ListView() {
           </tr>
         </thead>
         <tbody>
-          {treeOrder(tasks).map(({ task, depth }) => (
-            <tr key={task.id} className="border-t border-foreground/5" data-testid="task-row">
+          {rows.map(({ task, depth }) => (
+            <ListRow key={task.id} task={task}>
               <td className="px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2" style={{ paddingLeft: depth * 20 }}>
                   {depth > 0 && <span className="text-muted-foreground">↳</span>}
@@ -78,11 +114,29 @@ export function ListView() {
               <td className="px-3 py-2 text-muted-foreground">
                 {fieldText(mapping.targetFieldId ? task.fields[mapping.targetFieldId] : undefined)}
               </td>
-            </tr>
+            </ListRow>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function ListRow({ task, children }: { task: TaskView; children: React.ReactNode }) {
+  const { focused, isSelected, toggle, attrs } = useTaskFocus(task.id);
+  return (
+    <tr {...attrs} className={`group border-t border-foreground/5 ${focused ? "bg-muted" : ""} ${isSelected ? "bg-primary/5" : ""}`} data-testid="task-row">
+      <td className="px-3 py-2">
+        <input
+          type="checkbox"
+          aria-label={`Select ${task.title}`}
+          checked={isSelected}
+          onChange={toggle}
+          className={`size-3.5 ${isSelected ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
+        />
+      </td>
+      {children}
+    </tr>
   );
 }
 
@@ -96,8 +150,15 @@ export function KanbanView() {
   const [groupBy, setGroupBy] = useState(mapping.kanbanFieldId);
   const singleSelects = fields.filter((f) => f.dataType === "SINGLE_SELECT");
   const field = singleSelects.find((f) => f.id === groupBy);
+  const columns = field
+    ? [...(field.options ?? []).map((o) => ({ id: o.id as string | null, name: o.name })), { id: null, name: `No ${field.name}` }].map((col) => ({
+        ...col,
+        cards: tasks.filter((t) => optionOf(t, field.id) === col.id),
+      }))
+    : [];
+  // J / K walk down each column, then on to the next.
+  useOrder(columns.flatMap((c) => c.cards.map((t) => t.id)));
   if (!field) return <p className="text-sm text-muted-foreground">This board has no single-select field to group by.</p>;
-  const columns = [...(field.options ?? []).map((o) => ({ id: o.id as string | null, name: o.name })), { id: null, name: `No ${field.name}` }];
 
   // Optimistic: the card moves at once; a refusal moves it back with a notice.
   const move = (task: TaskView, optionId: string | null) =>
@@ -118,8 +179,7 @@ export function KanbanView() {
         </label>
       )}
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {columns.map((col) => {
-          const cards = tasks.filter((t) => optionOf(t, field.id) === col.id);
+        {columns.map(({ cards, ...col }) => {
           return (
             <section
               key={col.id ?? "none"}
@@ -138,29 +198,36 @@ export function KanbanView() {
                 {col.name} <span className="text-xs text-muted-foreground">{cards.length}</span>
               </h3>
               {cards.map((task) => (
-                <article
-                  key={task.id}
-                  draggable={canWrite}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("text/plain", task.id);
-                    setDragging(task.id);
-                  }}
-                  onDragEnd={() => setDragging(null)}
-                  className="space-y-1 rounded-lg bg-card p-2 text-sm shadow-xs ring-1 ring-foreground/10"
-                  data-testid="task-card"
-                >
-                  <TaskLink task={task} />
-                  <div className="flex flex-wrap items-center gap-1">
-                    <Ref task={task} />
-                    <StateBadge task={task} />
-                  </div>
-                </article>
+                <KanbanCard key={task.id} task={task} draggable={canWrite} onDrag={setDragging} />
               ))}
             </section>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function KanbanCard({ task, draggable, onDrag }: { task: TaskView; draggable: boolean; onDrag: (id: string | null) => void }) {
+  const { focused, isSelected, attrs } = useTaskFocus(task.id);
+  return (
+    <article
+      {...attrs}
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", task.id);
+        onDrag(task.id);
+      }}
+      onDragEnd={() => onDrag(null)}
+      className={`space-y-1 rounded-lg bg-card p-2 text-sm shadow-xs ring-1 ${focused ? "ring-2 ring-primary" : "ring-foreground/10"} ${isSelected ? "bg-primary/5" : ""}`}
+      data-testid="task-card"
+    >
+      <TaskLink task={task} />
+      <div className="flex flex-wrap items-center gap-1">
+        <Ref task={task} />
+        <StateBadge task={task} />
+      </div>
+    </article>
   );
 }
 
@@ -175,14 +242,15 @@ export function TimelineView() {
   const { tasks, mapping } = useBoard();
   // Read the clock once per mount, not on every render.
   const [now] = useState(() => Date.now());
-  if (!mapping.startFieldId && !mapping.targetFieldId && !mapping.iterationFieldId) {
-    return <p className="text-sm text-muted-foreground">This board has no date or iteration fields. An Admin can map them in Settings.</p>;
-  }
   const scheduled = treeOrder(tasks).flatMap(({ task }) => {
     const span = spanOf(task, mapping);
     return span ? [{ task, ...span }] : [];
   });
   const unscheduled = tasks.filter((t) => !spanOf(t, mapping));
+  useOrder([...scheduled.map((s) => s.task.id), ...unscheduled.map((t) => t.id)]);
+  if (!mapping.startFieldId && !mapping.targetFieldId && !mapping.iterationFieldId) {
+    return <p className="text-sm text-muted-foreground">This board has no date or iteration fields. An Admin can map them in Settings.</p>;
+  }
   // Two days of air on each side, starting on a Monday so week lines fall on whole days.
   const first = scheduled.length ? Math.min(...scheduled.map((s) => s.start)) - 2 * DAY : now;
   const startDay = first - ((new Date(first).getUTCDay() + 6) % 7) * DAY;
@@ -204,9 +272,7 @@ export function TimelineView() {
           <div className="border-r border-foreground/10">
             <div className="h-8 border-b border-foreground/10" />
             {scheduled.map(({ task }) => (
-              <div key={task.id} className="flex items-center truncate px-3 text-sm" style={{ height: ROW }} data-testid="timeline-row">
-                <TaskLink task={task} />
-              </div>
+              <TimelineLabel key={task.id} task={task} />
             ))}
           </div>
           <div className="overflow-x-auto">
@@ -269,6 +335,15 @@ export function TimelineView() {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function TimelineLabel({ task }: { task: TaskView }) {
+  const { focused, attrs } = useTaskFocus(task.id);
+  return (
+    <div {...attrs} className={`flex items-center truncate px-3 text-sm ${focused ? "bg-muted" : ""}`} style={{ height: ROW }} data-testid="timeline-row">
+      <TaskLink task={task} />
     </div>
   );
 }

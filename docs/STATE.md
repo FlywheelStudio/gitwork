@@ -14,7 +14,7 @@ Last updated: 2026-11-10
 
 ## In Progress
 
-Track C (keyboard, command menu) and Track D (app shell) — next after PR #8. Roadmap: `docs/roadmap.md` (PR #6).
+Track D (app shell, clear UI) — next after PR #9. Roadmap: `docs/roadmap.md` (PR #6).
 
 ## Completed
 
@@ -26,6 +26,7 @@ Track C (keyboard, command menu) and Track D (app shell) — next after PR #8. R
 | Phase 2 — GitHub App (PR #3) | 2026-10-15 | [features/github-app.md](features/github-app.md) |
 | Phase 3 — Tasks on web (PR #4) | 2026-10-16 | [features/tasks.md](features/tasks.md) |
 | Track B — Speed foundation (PR #8, in review) | 2026-11-10 | [features/speed.md](features/speed.md) |
+| Track C — Keyboard and command menu (PR #9, in review) | 2026-11-10 | [features/keyboard.md](features/keyboard.md) |
 
 ## Backlog
 

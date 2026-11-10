@@ -18,15 +18,7 @@ export function PeekPanel() {
   const { tasks } = useBoard();
   const task = peekId ? tasks.find((t) => t.id === peekId) : undefined;
 
-  useEffect(() => {
-    if (!peekId) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) closePeek();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [peekId, closePeek]);
-
+  // Escape closes the panel through the keymap (command-layer.tsx).
   if (!peekId) return null;
   return (
     <aside
@@ -164,7 +156,7 @@ function FieldRow({ field, task, canWrite }: { field: FieldView; task: TaskView;
             onKeyDown={(e) => {
               if (e.key === "Enter") commit(draft);
               if (e.key === "Escape") {
-                e.preventDefault(); // keep the panel open; just drop the draft
+                e.stopPropagation(); // keep the panel open; just drop the draft
                 setDraft(value);
               }
             }}
