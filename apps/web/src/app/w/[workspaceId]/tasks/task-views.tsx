@@ -1,30 +1,33 @@
 "use client";
-import type { FieldMapping, FieldView, TaskView } from "@gitwork/server";
+import type { TaskView } from "@gitwork/server";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ErrorText } from "@/components/kit";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
+import { useBoard, useBoardContext, useSnapshot, useTaskActions } from "../board-context";
 import { fieldText, optionOf, spanOf, treeOrder } from "./fields";
 
-interface ViewProps {
-  workspaceId: string;
-  tasks: TaskView[];
-  fields: FieldView[];
-  mapping: FieldMapping;
-  canWrite: boolean;
-}
-
-function TaskLink({ workspaceId, task }: { workspaceId: string; task: TaskView }) {
+/** Opens the side panel on a plain click; a modified click (new tab) follows the link. Hover prefetches the body. */
+export function TaskLink({ task, className }: { task: TaskView; className?: string }) {
+  const { workspaceId, openPeek, loadDetail } = useBoardContext();
   return (
-    <Link href={`/w/${workspaceId}/tasks/${encodeURIComponent(task.id)}`} className="font-medium hover:underline">
+    <Link
+      href={`/w/${workspaceId}/tasks/${encodeURIComponent(task.id)}`}
+      // The panel reads the store; 2,000 page prefetches would only cost the server.
+      prefetch={false}
+      className={className ?? "font-medium hover:underline"}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        openPeek(task.id);
+      }}
+      onMouseEnter={() => void loadDetail(task).catch(() => undefined)}
+    >
       {task.title || "(untitled)"}
     </Link>
   );
 }
 
-function Ref({ task }: { task: TaskView }) {
+export function Ref({ task }: { task: TaskView }) {
   if (task.kind === "draft") return <Badge variant="outline">Draft</Badge>;
   return (
     <span className="text-xs text-muted-foreground">
@@ -33,14 +36,15 @@ function Ref({ task }: { task: TaskView }) {
   );
 }
 
-function StateBadge({ task }: { task: TaskView }) {
+export function StateBadge({ task }: { task: TaskView }) {
   if (task.state !== "closed") return null;
   return <Badge variant="secondary">{task.stateReason === "not_planned" ? "Not planned" : "Closed"}</Badge>;
 }
 
 // ---- List -------------------------------------------------------------------------------------
 
-export function ListView({ workspaceId, tasks, mapping }: ViewProps) {
+export function ListView() {
+  const { tasks, mapping } = useBoard();
   if (tasks.length === 0) return <Empty />;
   return (
     <div className="overflow-x-auto rounded-xl ring-1 ring-foreground/10">
@@ -59,7 +63,7 @@ export function ListView({ workspaceId, tasks, mapping }: ViewProps) {
               <td className="px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2" style={{ paddingLeft: depth * 20 }}>
                   {depth > 0 && <span className="text-muted-foreground">↳</span>}
-                  <TaskLink workspaceId={workspaceId} task={task} />
+                  <TaskLink task={task} />
                   <Ref task={task} />
                   <StateBadge task={task} />
                   {task.labels.map((l) => (
@@ -84,9 +88,10 @@ export function ListView({ workspaceId, tasks, mapping }: ViewProps) {
 
 // ---- Kanban -----------------------------------------------------------------------------------
 
-export function KanbanView({ workspaceId, tasks, fields, mapping, canWrite }: ViewProps) {
-  const router = useRouter();
-  const [error, setError] = useState("");
+export function KanbanView() {
+  const { tasks, fields, mapping } = useBoard();
+  const { canWrite } = useSnapshot();
+  const { setField } = useTaskActions();
   const [dragging, setDragging] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState(mapping.kanbanFieldId);
   const singleSelects = fields.filter((f) => f.dataType === "SINGLE_SELECT");
@@ -94,17 +99,9 @@ export function KanbanView({ workspaceId, tasks, fields, mapping, canWrite }: Vi
   if (!field) return <p className="text-sm text-muted-foreground">This board has no single-select field to group by.</p>;
   const columns = [...(field.options ?? []).map((o) => ({ id: o.id as string | null, name: o.name })), { id: null, name: `No ${field.name}` }];
 
-  async function move(taskId: string, optionId: string | null) {
-    setError("");
-    try {
-      await api("PATCH", `/workspaces/${workspaceId}/tasks/${encodeURIComponent(taskId)}`, {
-        fields: { [field!.id]: optionId ? { type: "single_select", optionId } : null },
-      });
-      router.refresh();
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }
+  // Optimistic: the card moves at once; a refusal moves it back with a notice.
+  const move = (task: TaskView, optionId: string | null) =>
+    setField(task, field, optionId ? { type: "single_select", optionId } : null);
 
   return (
     <div className="space-y-3">
@@ -120,7 +117,6 @@ export function KanbanView({ workspaceId, tasks, fields, mapping, canWrite }: Vi
           </select>
         </label>
       )}
-      <ErrorText>{error}</ErrorText>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {columns.map((col) => {
           const cards = tasks.filter((t) => optionOf(t, field.id) === col.id);
@@ -135,7 +131,7 @@ export function KanbanView({ workspaceId, tasks, fields, mapping, canWrite }: Vi
                 const id = e.dataTransfer.getData("text/plain");
                 setDragging(null);
                 const task = tasks.find((t) => t.id === id);
-                if (task && optionOf(task, field.id) !== col.id) void move(id, col.id);
+                if (task && optionOf(task, field.id) !== col.id) void move(task, col.id);
               }}
             >
               <h3 className="flex items-center justify-between px-1 text-sm font-medium">
@@ -153,7 +149,7 @@ export function KanbanView({ workspaceId, tasks, fields, mapping, canWrite }: Vi
                   className="space-y-1 rounded-lg bg-card p-2 text-sm shadow-xs ring-1 ring-foreground/10"
                   data-testid="task-card"
                 >
-                  <TaskLink workspaceId={workspaceId} task={task} />
+                  <TaskLink task={task} />
                   <div className="flex flex-wrap items-center gap-1">
                     <Ref task={task} />
                     <StateBadge task={task} />
@@ -175,7 +171,8 @@ const ROW = 36;
 const DAY_PX = 24;
 const BAR = 20;
 
-export function TimelineView({ workspaceId, tasks, mapping }: ViewProps) {
+export function TimelineView() {
+  const { tasks, mapping } = useBoard();
   // Read the clock once per mount, not on every render.
   const [now] = useState(() => Date.now());
   if (!mapping.startFieldId && !mapping.targetFieldId && !mapping.iterationFieldId) {
@@ -208,7 +205,7 @@ export function TimelineView({ workspaceId, tasks, mapping }: ViewProps) {
             <div className="h-8 border-b border-foreground/10" />
             {scheduled.map(({ task }) => (
               <div key={task.id} className="flex items-center truncate px-3 text-sm" style={{ height: ROW }} data-testid="timeline-row">
-                <TaskLink workspaceId={workspaceId} task={task} />
+                <TaskLink task={task} />
               </div>
             ))}
           </div>
@@ -266,7 +263,7 @@ export function TimelineView({ workspaceId, tasks, mapping }: ViewProps) {
           <ul className="space-y-1 text-sm">
             {unscheduled.map((task) => (
               <li key={task.id} className="flex items-center gap-2">
-                <TaskLink workspaceId={workspaceId} task={task} /> <Ref task={task} />
+                <TaskLink task={task} /> <Ref task={task} />
               </li>
             ))}
           </ul>

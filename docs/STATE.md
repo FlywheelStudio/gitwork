@@ -18,7 +18,7 @@ Last updated: 2026-11-10
 
 ## In Progress
 
-Track B + C + D (speed, keyboard, layout) — next after PR #7.
+Track C (keyboard, command menu) and Track D (app shell) — next after PR #8. Roadmap: `docs/roadmap.md` (PR #6).
 
 ## Completed
 
@@ -30,6 +30,7 @@ Track B + C + D (speed, keyboard, layout) — next after PR #7.
 | Phase 2 — GitHub App (PR #3) | 2026-10-15 | [features/github-app.md](features/github-app.md) |
 | Phase 3 — Tasks on web (PR #4) | 2026-10-16 | [features/tasks.md](features/tasks.md) |
 | Track A — Self-host release (PR #7, in review; GitHub half of the exit check waits on the live check) | 2026-11-10 | [features/self-host.md](features/self-host.md) |
+| Track B — Speed foundation (PR #8, in review) | 2026-11-10 | [features/speed.md](features/speed.md) |
 
 ## Backlog
 

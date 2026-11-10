@@ -158,6 +158,15 @@ test("Read Only never receives a hidden task or one from an unlinked repo", asyn
     expect((await reader.request.get(`/api/v1/workspaces/${workspaceId}/tasks/${id}`)).status()).toBe(404);
   }
 
+  // The client store's snapshot (decision 033): the same two tasks, no hidden title or id.
+  const synced = await reader.request.get(`/api/v1/workspaces/${workspaceId}/sync`);
+  expect(synced.status()).toBe(200);
+  const syncText = await synced.text();
+  await expectNoSecrets(syncText);
+  const snapshot = JSON.parse(syncText) as { role: string; board: { tasks: { id: string }[] } };
+  expect(snapshot.role).toBe("read_only");
+  expect(snapshot.board.tasks.map((t) => t.id).sort()).toEqual(["PVTI_site1", "PVTI_site3"]);
+
   // Every view, and the task pages.
   for (const view of ["list", "board", "timeline"]) {
     await reader.goto(`/w/${workspaceId}?view=${view}`);
@@ -175,6 +184,15 @@ test("Read Only never receives a hidden task or one from an unlinked repo", asyn
     const r = await reader.goto(`/w/${workspaceId}/tasks/${id}`);
     expect(r?.status()).toBe(404);
   }
+
+  // The side panel: opens from the store, no edit controls, nothing hidden.
+  await reader.goto(`/w/${workspaceId}?view=list`);
+  await reader.getByRole("link", { name: "Pricing table" }).click();
+  const panel = reader.getByTestId("peek-panel");
+  await expect(panel.getByRole("heading", { name: "Pricing table" })).toBeVisible();
+  await expect(panel.getByText("Pricing table body")).toBeVisible();
+  await expect(panel.getByRole("combobox")).toHaveCount(0);
+  await expectNoSecrets(await reader.content());
 
   // Read Only cannot write.
   await reader.goto(`/w/${workspaceId}`);

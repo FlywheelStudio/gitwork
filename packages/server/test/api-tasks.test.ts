@@ -1,4 +1,5 @@
-import type { Database } from "@gitwork/db";
+import { type Database, ghIssues, ghProjectItems } from "@gitwork/db";
+import { eq } from "drizzle-orm";
 import { type TestDriver, allTestDrivers } from "@gitwork/db/testing";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { ApiDeps } from "../src/api/router";
@@ -17,8 +18,8 @@ describe.each(drivers)("/api/v1 tasks on $name", (driver: TestDriver) => {
   let auth: ReturnType<typeof testAuth>;
   const cookies: Record<string, string> = {};
 
-  function api(method: string, path: string, opts: { as?: string; body?: unknown } = {}) {
-    const headers = new Headers({ origin: BASE_URL });
+  function api(method: string, path: string, opts: { as?: string; body?: unknown; headers?: Record<string, string> } = {}) {
+    const headers = new Headers({ origin: BASE_URL, ...opts.headers });
     if (opts.as) headers.set("cookie", cookies[opts.as]!);
     if (opts.body !== undefined) headers.set("content-type", "application/json");
     return handleApiRequest(
@@ -106,5 +107,65 @@ describe.each(drivers)("/api/v1 tasks on $name", (driver: TestDriver) => {
     expect((await api("GET", "/github/candidates", { as: "jane" })).status).toBe(409);
     // Reads never need GitHub.
     expect((await api("GET", "/tasks", { as: "max" })).status).toBe(200);
+  });
+
+  // ---- /sync (decision 033) ---------------------------------------------------------------------
+
+  const sync = (as: string, etag?: string) => api("GET", "/sync", { as, headers: etag ? { "if-none-match": etag } : {} });
+  const setTitle = (nodeId: string, title: string) => database.db.update(ghIssues).set({ title }).where(eq(ghIssues.nodeId, nodeId));
+
+  it("sync: 401 without a session", async () => {
+    expect((await api("GET", "/sync")).status).toBe(401);
+  });
+
+  it("sync: serves the filtered snapshot with a private ETag, and 304 when nothing changed", async () => {
+    await link("jane");
+    await api("PATCH", "/settings", { as: "jane", body: { hideLabel: "Internal" } });
+    const res = await sync("rita");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("private, no-cache");
+    expect(res.headers.get("vary")).toBe("Cookie");
+    const etag = res.headers.get("etag")!;
+    expect(etag).toMatch(/^"[A-Za-z0-9_-]{43}"$/);
+    const body = (await res.json()) as { role: string; canWrite: boolean; board: { tasks: { title: string }[] } };
+    expect(body.role).toBe("read_only");
+    expect(body.canWrite).toBe(false);
+    expect(body.board.tasks.map((t) => t.title).sort()).toEqual(["Homepage hero", "Pricing table"]);
+
+    const again = await sync("rita", etag);
+    expect(again.status).toBe(304);
+    expect(await again.text()).toBe("");
+    // The ETag is per viewer: a Member sees more, so the same ETag does not match.
+    expect((await sync("max", etag)).status).toBe(200);
+  });
+
+  it("sync: a change only to hidden or unlinked items gives Read Only a 304; a visible change gives 200", async () => {
+    await link("jane");
+    await api("PATCH", "/settings", { as: "jane", body: { hideLabel: "Internal" } });
+    const rita0 = (await sync("rita")).headers.get("etag")!;
+    const max0 = (await sync("max")).headers.get("etag")!;
+
+    await setTitle("I_acme/site#2", "Internal pricing notes v2"); // hidden by label
+    await setTitle("I_acme/internal#1", "Secret roadmap v2"); // repo not linked
+    await database.db.update(ghProjectItems).set({ draftTitle: "Idea: light mode" }).where(eq(ghProjectItems.nodeId, "PVTI_draft"));
+    expect((await sync("rita", rita0)).status).toBe(304);
+    // The same edits are visible to a Member, so the Member's snapshot changes: the check can fail.
+    expect((await sync("max", max0)).status).toBe(200);
+
+    await setTitle("I_acme/site#1", "Homepage hero v2"); // visible to everyone
+    const changed = await sync("rita", rita0);
+    expect(changed.status).toBe(200);
+    expect(changed.headers.get("etag")).not.toBe(rita0);
+    const body = (await changed.json()) as { board: { tasks: { title: string }[] } };
+    expect(body.board.tasks.map((t) => t.title).sort()).toEqual(["Homepage hero v2", "Pricing table"]);
+  });
+
+  it("sync: a role change changes the snapshot", async () => {
+    await link("jane");
+    const before = (await sync("rita")).headers.get("etag")!;
+    await api("PATCH", `/members/rita`, { as: "jane", body: { role: "member" } });
+    const after = await sync("rita", before);
+    expect(after.status).toBe(200);
+    expect(((await after.json()) as { role: string; canWrite: boolean }).canWrite).toBe(true);
   });
 });

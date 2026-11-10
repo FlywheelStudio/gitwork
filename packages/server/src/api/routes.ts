@@ -18,6 +18,7 @@ import { installUrl, isInstanceAdmin, removeGitHubApp, startManifestFlow } from 
 import { conflict, forbidden } from "../errors";
 import { getWorkspaceLink, linkWorkspace, listLinkCandidates, MAX_LINKED_REPOS, unlinkWorkspace } from "../services/link";
 import { createTask, getTask, listTasks, resolveMapping, setFieldMapping, updateTask } from "../services/tasks";
+import { serializedSnapshot } from "../services/board-sync";
 import { updateWorkspaceSettings } from "../services/workspace-settings";
 import { type RouteContext, createApiHandler, route } from "./router";
 
@@ -109,6 +110,20 @@ export const routes = [
     async handler({ deps, session, params }) {
       const access = await requireWorkspaceAccess(deps.database.db, session!.user.id, params.workspaceId!);
       return listTasks(deps.database.db, access);
+    },
+  }),
+
+  // The client store polls this (decision 033). 304 when nothing this viewer can see changed.
+  route({
+    method: "GET",
+    pattern: "/workspaces/:workspaceId/sync",
+    async handler({ deps, session, params, request }) {
+      const access = await requireWorkspaceAccess(deps.database.db, session!.user.id, params.workspaceId!);
+      const { body, etag } = await serializedSnapshot(deps.database.db, access);
+      // Per-user data: no shared cache (a proxy or CDN) may store or reuse it.
+      const headers = { etag, "cache-control": "private, no-cache", vary: "Cookie" };
+      if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
+      return new Response(body, { status: 200, headers: { ...headers, "content-type": "application/json" } });
     },
   }),
 

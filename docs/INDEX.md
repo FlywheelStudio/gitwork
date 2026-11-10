@@ -42,6 +42,7 @@
 | 030 | [Assignees are GitHub users only](decisions/030-assignees.md) |
 | 031 | [Linear features out of scope for v1](decisions/031-v1-scope.md) |
 | 032 | [Triage is linked-repo issues not on the board](decisions/032-triage.md) |
+| 033 | [Sync by snapshot ETag, not a change table; no IndexedDB yet](decisions/033-snapshot-etag-sync.md) |
 
 ## Features
 
@@ -53,3 +54,4 @@
 | [features/tasks.md](features/tasks.md) | Board and repo link, list / kanban / timeline, task edits, visibility filter, audit log. |
 | [features/self-host.md](features/self-host.md) | Docker image, config check, /setup/health, backup, release pipeline, DCO. |
 | [self-host/README.md](self-host/README.md) | Self-host guide: Docker, Cloudflare, upgrades, backups, troubleshooting. |
+| [features/speed.md](features/speed.md) | Client store, /sync with ETag, optimistic edits, side panel, measured budgets. |
