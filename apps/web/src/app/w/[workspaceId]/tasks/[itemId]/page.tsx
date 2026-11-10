@@ -2,18 +2,16 @@ import { can } from "@gitwork/core";
 import { ServiceError, getTask, listTasks } from "@gitwork/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Header } from "@/components/header";
 import { Card } from "@/components/kit";
 import { Badge } from "@/components/ui/badge";
 import { requireWorkspacePage } from "@/server/pages";
-import { WorkspaceNav } from "../../workspace-nav";
 import { editableFields, fieldText } from "../fields";
 import { TaskEditor } from "./task-editor";
 
 export default async function TaskPage({ params }: PageProps<"/w/[workspaceId]/tasks/[itemId]">) {
   const { workspaceId, itemId: rawId } = await params;
   const itemId = decodeURIComponent(rawId);
-  const { user, access, db } = await requireWorkspacePage(workspaceId, `/w/${workspaceId}/tasks/${rawId}`);
+  const { access, db } = await requireWorkspacePage(workspaceId, `/w/${workspaceId}/tasks/${rawId}`);
   const task = await getTask(db, access, itemId).catch((e: unknown) => {
     if (e instanceof ServiceError && e.status === 404) notFound();
     throw e;
@@ -25,9 +23,7 @@ export default async function TaskPage({ params }: PageProps<"/w/[workspaceId]/t
 
   return (
     <>
-      <Header email={user.email} />
-      <main className="mx-auto w-full max-w-4xl flex-1 p-6">
-        <WorkspaceNav id={workspaceId} name={access.workspace.name} role={access.role} />
+      <div className="mx-auto w-full max-w-4xl">
         <Link href={`/w/${workspaceId}`} className="text-sm text-muted-foreground hover:underline">
           ← All tasks
         </Link>
@@ -85,7 +81,7 @@ export default async function TaskPage({ params }: PageProps<"/w/[workspaceId]/t
           </dl>
         </Card>
         {canWrite && <TaskEditor workspaceId={workspaceId} task={task} fields={fields} />}
-      </main>
+      </div>
     </>
   );
 }

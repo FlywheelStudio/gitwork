@@ -55,3 +55,5 @@
 | [features/self-host.md](features/self-host.md) | Docker image, config check, /setup/health, backup, release pipeline, DCO. |
 | [self-host/README.md](self-host/README.md) | Self-host guide: Docker, Cloudflare, upgrades, backups, troubleshooting. |
 | [features/speed.md](features/speed.md) | Client store, /sync with ETag, optimistic edits, side panel, measured budgets. |
+| [features/keyboard.md](features/keyboard.md) | Shared keymap, command menu, pickers, bulk edit with undo, shortcut sheet. |
+| [features/shell.md](features/shell.md) | Workspace layout and sidebar, grouped virtualized list, dense cards, write-path line, dark mode. |

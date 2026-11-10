@@ -2,16 +2,14 @@ import { authorize, can } from "@gitwork/core";
 import { getWorkspaceLink, resolveMapping } from "@gitwork/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Header } from "@/components/header";
 import { Card } from "@/components/kit";
 import { getDeps } from "@/server/context";
 import { requireWorkspacePage } from "@/server/pages";
-import { WorkspaceNav } from "../workspace-nav";
 import { FieldMappingPanel, GitHubLinkPanel, VisibilityPanel } from "./settings-panels";
 
 export default async function WorkspaceSettingsPage({ params }: PageProps<"/w/[workspaceId]/settings">) {
   const { workspaceId } = await params;
-  const { user, access, db } = await requireWorkspacePage(workspaceId, `/w/${workspaceId}/settings`);
+  const { access, db } = await requireWorkspacePage(workspaceId, `/w/${workspaceId}/settings`);
   const canSettings = can(access.actor, "workspace.settings", access.settings);
   const github = authorize(access.actor, "workspace.github_settings", access.settings);
   if (!canSettings && !github.ok && github.reason === "role") notFound();
@@ -21,9 +19,7 @@ export default async function WorkspaceSettingsPage({ params }: PageProps<"/w/[w
 
   return (
     <>
-      <Header email={user.email} />
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-6 p-6">
-        <WorkspaceNav id={workspaceId} name={access.workspace.name} role={access.role} />
+      <div className="mx-auto w-full max-w-4xl space-y-6">
         <Card className="space-y-4">
           <h2 className="font-medium">GitHub board and repos</h2>
           {data ? (
@@ -70,7 +66,7 @@ export default async function WorkspaceSettingsPage({ params }: PageProps<"/w/[w
             />
           </Card>
         )}
-      </main>
+      </div>
     </>
   );
 }

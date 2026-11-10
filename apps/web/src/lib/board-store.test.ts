@@ -22,6 +22,7 @@ const task = (id: string, title: string): TaskView => ({
 const snap = (...tasks: TaskView[]): Snapshot => ({
   role: "member",
   canWrite: true,
+  viewer: { githubLinked: false },
   board: {
     linked: true,
     board: { title: "B", url: "", available: true },

@@ -32,6 +32,7 @@ so the client replaces everything it holds. No tombstones, no cursor, nothing to
 
 ## Consequences
 - Each poll runs the filtered board query on the server (one join over the board's items). Each
-  change sends the whole snapshot. Its size at 2,000 tasks is not measured yet; measure it before
-  choosing per-task hashes.
+  change sends the whole snapshot. Measured at 2,000 tasks (`e2e/speed.spec.ts`, local Node +
+  SQLite): 943 KiB uncompressed, about 60 ms for a 200 and 50 ms for a 304 (the server still builds
+  and hashes the snapshot to answer 304).
 - Revisit with per-task hashes when boards pass about 5,000 tasks.

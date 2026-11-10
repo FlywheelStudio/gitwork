@@ -1,14 +1,16 @@
 "use client";
-import type { TaskView } from "@gitwork/server";
+import type { FieldView, TaskView } from "@gitwork/server";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useViewport } from "@/lib/viewport";
 import { Badge } from "@/components/ui/badge";
-import { useBoard, useBoardContext, useSnapshot, useTaskActions } from "../board-context";
-import { fieldText, optionOf, spanOf, treeOrder } from "./fields";
+import { useBoard, useBoardApi, useRowFocus, useSnapshot, useTaskActions } from "../board-context";
+import { optionOf, spanOf, treeOrder } from "./fields";
+import { Avatars, DueDate, Labels, PriorityIcon } from "./task-bits";
 
 /** Opens the side panel on a plain click; a modified click (new tab) follows the link. Hover prefetches the body. */
 export function TaskLink({ task, className }: { task: TaskView; className?: string }) {
-  const { workspaceId, openPeek, loadDetail } = useBoardContext();
+  const { workspaceId, openPeek, loadDetail } = useBoardApi();
   return (
     <Link
       href={`/w/${workspaceId}/tasks/${encodeURIComponent(task.id)}`}
@@ -36,54 +38,41 @@ export function Ref({ task }: { task: TaskView }) {
   );
 }
 
+/** Registers the view's on-screen order, so J / K follow what the person sees. */
+export function useOrder(ids: string[]) {
+  const { setOrder } = useBoardApi();
+  const key = ids.join("\n");
+  useEffect(() => {
+    setOrder(key ? key.split("\n") : []);
+  }, [setOrder, key]);
+}
+
+/** Focus ring and selection state for one task's row or card. */
+export function useTaskFocus(id: string) {
+  const { focus } = useBoardApi();
+  const { focused, isSelected } = useRowFocus(id);
+  const toggle = () => {
+    const next = new Set(focus.getState().selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    focus.setSelected(next);
+  };
+  return {
+    focused,
+    isSelected,
+    toggle,
+    attrs: {
+      "data-task-id": id,
+      "data-focused": focused ? "true" : undefined,
+      "aria-selected": isSelected,
+      onClick: () => focus.setFocused(id),
+    },
+  };
+}
+
 export function StateBadge({ task }: { task: TaskView }) {
   if (task.state !== "closed") return null;
   return <Badge variant="secondary">{task.stateReason === "not_planned" ? "Not planned" : "Closed"}</Badge>;
-}
-
-// ---- List -------------------------------------------------------------------------------------
-
-export function ListView() {
-  const { tasks, mapping } = useBoard();
-  if (tasks.length === 0) return <Empty />;
-  return (
-    <div className="overflow-x-auto rounded-xl ring-1 ring-foreground/10">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 font-medium">Task</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-            <th className="px-3 py-2 font-medium">Assignees</th>
-            <th className="px-3 py-2 font-medium">Target</th>
-          </tr>
-        </thead>
-        <tbody>
-          {treeOrder(tasks).map(({ task, depth }) => (
-            <tr key={task.id} className="border-t border-foreground/5" data-testid="task-row">
-              <td className="px-3 py-2">
-                <div className="flex flex-wrap items-center gap-2" style={{ paddingLeft: depth * 20 }}>
-                  {depth > 0 && <span className="text-muted-foreground">↳</span>}
-                  <TaskLink task={task} />
-                  <Ref task={task} />
-                  <StateBadge task={task} />
-                  {task.labels.map((l) => (
-                    <Badge key={l.name} variant="outline">
-                      {l.name}
-                    </Badge>
-                  ))}
-                </div>
-              </td>
-              <td className="px-3 py-2">{fieldText(mapping.kanbanFieldId ? task.fields[mapping.kanbanFieldId] : undefined)}</td>
-              <td className="px-3 py-2 text-muted-foreground">{task.assignees.map((a) => a.login).join(", ")}</td>
-              <td className="px-3 py-2 text-muted-foreground">
-                {fieldText(mapping.targetFieldId ? task.fields[mapping.targetFieldId] : undefined)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 // ---- Kanban -----------------------------------------------------------------------------------
@@ -94,10 +83,22 @@ export function KanbanView() {
   const { setField } = useTaskActions();
   const [dragging, setDragging] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState(mapping.kanbanFieldId);
+  // Long columns show their first 50 cards; "Show more" adds 50. Keeps a 2,000-task board quick.
+  const [limits, setLimits] = useState<Record<string, number>>({});
+  const limitOf = (key: string) => limits[key] ?? 50;
+  const priority = fields.find((f) => f.dataType === "SINGLE_SELECT" && /^priority$/i.test(f.name));
+  const [now] = useState(() => Date.now());
   const singleSelects = fields.filter((f) => f.dataType === "SINGLE_SELECT");
   const field = singleSelects.find((f) => f.id === groupBy);
+  const columns = field
+    ? [...(field.options ?? []).map((o) => ({ id: o.id as string | null, name: o.name })), { id: null, name: `No ${field.name}` }].map((col) => ({
+        ...col,
+        cards: tasks.filter((t) => optionOf(t, field.id) === col.id),
+      }))
+    : [];
+  // J / K walk down each column's shown cards, then on to the next column.
+  useOrder(columns.flatMap((c) => c.cards.slice(0, limitOf(c.id ?? "none")).map((t) => t.id)));
   if (!field) return <p className="text-sm text-muted-foreground">This board has no single-select field to group by.</p>;
-  const columns = [...(field.options ?? []).map((o) => ({ id: o.id as string | null, name: o.name })), { id: null, name: `No ${field.name}` }];
 
   // Optimistic: the card moves at once; a refusal moves it back with a notice.
   const move = (task: TaskView, optionId: string | null) =>
@@ -118,8 +119,7 @@ export function KanbanView() {
         </label>
       )}
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {columns.map((col) => {
-          const cards = tasks.filter((t) => optionOf(t, field.id) === col.id);
+        {columns.map(({ cards, ...col }) => {
           return (
             <section
               key={col.id ?? "none"}
@@ -137,30 +137,63 @@ export function KanbanView() {
               <h3 className="flex items-center justify-between px-1 text-sm font-medium">
                 {col.name} <span className="text-xs text-muted-foreground">{cards.length}</span>
               </h3>
-              {cards.map((task) => (
-                <article
-                  key={task.id}
-                  draggable={canWrite}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("text/plain", task.id);
-                    setDragging(task.id);
-                  }}
-                  onDragEnd={() => setDragging(null)}
-                  className="space-y-1 rounded-lg bg-card p-2 text-sm shadow-xs ring-1 ring-foreground/10"
-                  data-testid="task-card"
-                >
-                  <TaskLink task={task} />
-                  <div className="flex flex-wrap items-center gap-1">
-                    <Ref task={task} />
-                    <StateBadge task={task} />
-                  </div>
-                </article>
+              {cards.slice(0, limitOf(col.id ?? "none")).map((task) => (
+                <KanbanCard key={task.id} task={task} draggable={canWrite} onDrag={setDragging} priority={priority} target={mapping.targetFieldId} now={now} />
               ))}
+              {cards.length > limitOf(col.id ?? "none") && (
+                <button
+                  type="button"
+                  className="rounded-md px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
+                  onClick={() => setLimits({ ...limits, [col.id ?? "none"]: limitOf(col.id ?? "none") + 50 })}
+                >
+                  Show {Math.min(50, cards.length - limitOf(col.id ?? "none"))} more of {cards.length - limitOf(col.id ?? "none")}
+                </button>
+              )}
+              {cards.length === 0 && <p className="px-1 text-xs text-muted-foreground">Nothing here.</p>}
             </section>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function KanbanCard(props: {
+  task: TaskView;
+  draggable: boolean;
+  onDrag: (id: string | null) => void;
+  priority: FieldView | undefined;
+  target: string | null;
+  now: number;
+}) {
+  const { task, draggable, onDrag } = props;
+  const { focused, isSelected, attrs } = useTaskFocus(task.id);
+  return (
+    <article
+      {...attrs}
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", task.id);
+        onDrag(task.id);
+      }}
+      onDragEnd={() => onDrag(null)}
+      className={`space-y-1 rounded-lg bg-card p-2 text-sm shadow-xs ring-1 ${focused ? "ring-2 ring-primary" : "ring-foreground/10"} ${isSelected ? "bg-primary/5" : ""}`}
+      data-testid="task-card"
+    >
+      <div className="flex items-center gap-2">
+        {props.priority && <PriorityIcon value={task.fields[props.priority.id]} field={props.priority} />}
+        <Ref task={task} />
+        <StateBadge task={task} />
+        <span className="ml-auto">
+          <Avatars task={task} />
+        </span>
+      </div>
+      <TaskLink task={task} className="line-clamp-2 font-medium hover:underline" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Labels task={task} />
+        <DueDate value={props.target ? task.fields[props.target] : undefined} task={task} now={props.now} />
+      </div>
+    </article>
   );
 }
 
@@ -170,23 +203,46 @@ const DAY = 86_400_000;
 const ROW = 36;
 const DAY_PX = 24;
 const BAR = 20;
+const TIMELINE_OVERSCAN = 800;
 
 export function TimelineView() {
   const { tasks, mapping } = useBoard();
+  const { focus } = useBoardApi();
   // Read the clock once per mount, not on every render.
   const [now] = useState(() => Date.now());
+  const [unscheduledLimit, setUnscheduledLimit] = useState(100);
+  const { scheduled, unscheduled } = useMemo(() => {
+    const scheduled = treeOrder(tasks).flatMap(({ task }) => {
+      const span = spanOf(task, mapping);
+      return span ? [{ task, ...span }] : [];
+    });
+    return { scheduled, unscheduled: tasks.filter((t) => !spanOf(t, mapping)) };
+  }, [tasks, mapping]);
+  useOrder([...scheduled.map((s) => s.task.id), ...unscheduled.slice(0, unscheduledLimit).map((t) => t.id)]);
+  // Only rows near the viewport are drawn (labels, bars, and arrows that cross them).
+  const { attach, from, to, reveal } = useViewport(TIMELINE_OVERSCAN);
+  useEffect(
+    () =>
+      focus.subscribe(() => {
+        const id = focus.getState().focusedId;
+        const i = id ? scheduled.findIndex((s) => s.task.id === id) : -1;
+        if (i !== -1) reveal(i * ROW, ROW);
+      }),
+    [focus, scheduled, reveal],
+  );
   if (!mapping.startFieldId && !mapping.targetFieldId && !mapping.iterationFieldId) {
     return <p className="text-sm text-muted-foreground">This board has no date or iteration fields. An Admin can map them in Settings.</p>;
   }
-  const scheduled = treeOrder(tasks).flatMap(({ task }) => {
-    const span = spanOf(task, mapping);
-    return span ? [{ task, ...span }] : [];
-  });
-  const unscheduled = tasks.filter((t) => !spanOf(t, mapping));
   // Two days of air on each side, starting on a Monday so week lines fall on whole days.
-  const first = scheduled.length ? Math.min(...scheduled.map((s) => s.start)) - 2 * DAY : now;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const s of scheduled) {
+    if (s.start < min) min = s.start;
+    if (s.end > max) max = s.end;
+  }
+  const first = scheduled.length ? min - 2 * DAY : now;
   const startDay = first - ((new Date(first).getUTCDay() + 6) % 7) * DAY;
-  const endDay = scheduled.length ? Math.max(...scheduled.map((s) => s.end)) + 2 * DAY : startDay + 14 * DAY;
+  const endDay = scheduled.length ? max + 2 * DAY : startDay + 14 * DAY;
   const days = Math.max(14, Math.ceil((endDay - startDay) / DAY));
   const x = (t: number) => ((t - startDay) / DAY) * DAY_PX;
   const width = days * DAY_PX;
@@ -194,6 +250,9 @@ export function TimelineView() {
   const rowOf = new Map(scheduled.map((s, i) => [s.task.id, i]));
   const weeks = Array.from({ length: Math.ceil(days / 7) }, (_, i) => startDay + i * 7 * DAY);
   const label = (t: number) => new Date(t).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
+  const firstRow = Math.max(0, Math.floor(from / ROW));
+  const lastRow = Math.min(scheduled.length - 1, Math.ceil(to / ROW));
+  const shown = scheduled.slice(firstRow, lastRow + 1).map((s, k) => ({ ...s, i: firstRow + k }));
 
   return (
     <div className="space-y-6">
@@ -203,11 +262,11 @@ export function TimelineView() {
         <div className="grid grid-cols-[minmax(10rem,16rem)_1fr] rounded-xl ring-1 ring-foreground/10">
           <div className="border-r border-foreground/10">
             <div className="h-8 border-b border-foreground/10" />
-            {scheduled.map(({ task }) => (
-              <div key={task.id} className="flex items-center truncate px-3 text-sm" style={{ height: ROW }} data-testid="timeline-row">
-                <TaskLink task={task} />
-              </div>
-            ))}
+            <div ref={attach} className="relative" style={{ height }}>
+              {shown.map(({ task, i }) => (
+                <TimelineLabel key={task.id} task={task} top={i * ROW} />
+              ))}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <div style={{ width }}>
@@ -230,16 +289,17 @@ export function TimelineView() {
                 {now > startDay && now < startDay + days * DAY && (
                   <line x1={x(now)} x2={x(now)} y1={0} y2={height} className="stroke-destructive/60" strokeDasharray="3 3" />
                 )}
-                {scheduled.map(({ task, start, end }, i) => (
-                  <rect key={task.id} x={x(start)} y={i * ROW + (ROW - BAR) / 2} width={Math.max(x(end) - x(start), 6)} height={BAR} rx={5} className="fill-primary/80">
+                {shown.map(({ task, start, end, i }) => (
+                  <rect key={task.id} x={x(start)} y={i * ROW + (ROW - BAR) / 2} width={Math.max(x(end) - x(start), 6)} height={BAR} rx={5} className="fill-primary/80" data-testid="timeline-bar">
                     <title>{task.title}</title>
                   </rect>
                 ))}
-                {/* Dependencies: out of the blocker's end, down, into the blocked task's start. */}
+                {/* Dependencies: out of the blocker's end, down, into the blocked task's start. Drawn when
+                    the arrow crosses the rendered rows, even if one end is off screen. */}
                 {scheduled.flatMap(({ task, start }, i) =>
                   task.blockedBy.flatMap((blocker) => {
                     const j = rowOf.get(blocker);
-                    if (j === undefined) return [];
+                    if (j === undefined || Math.max(i, j) < firstRow || Math.min(i, j) > lastRow) return [];
                     const x1 = x(scheduled[j]!.end);
                     const y1 = j * ROW + ROW / 2;
                     const x2 = x(start);
@@ -261,18 +321,35 @@ export function TimelineView() {
         <div>
           <h3 className="mb-2 text-sm font-medium">Unscheduled</h3>
           <ul className="space-y-1 text-sm">
-            {unscheduled.map((task) => (
+            {unscheduled.slice(0, unscheduledLimit).map((task) => (
               <li key={task.id} className="flex items-center gap-2">
                 <TaskLink task={task} /> <Ref task={task} />
               </li>
             ))}
           </ul>
+          {unscheduled.length > unscheduledLimit && (
+            <button type="button" className="mt-2 text-xs text-muted-foreground hover:underline" onClick={() => setUnscheduledLimit(unscheduledLimit + 100)}>
+              Show {Math.min(100, unscheduled.length - unscheduledLimit)} more of {unscheduled.length - unscheduledLimit}
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function Empty() {
-  return <p className="text-sm text-muted-foreground">No tasks yet.</p>;
+function TimelineLabel({ task, top }: { task: TaskView; top: number }) {
+  const { focused, attrs } = useTaskFocus(task.id);
+  return (
+    <div
+      {...attrs}
+      className={`absolute inset-x-0 flex items-center truncate px-3 text-sm ${focused ? "bg-muted shadow-[inset_2px_0_0_var(--color-primary)]" : ""}`}
+      style={{ top, height: ROW }}
+      data-testid="timeline-row"
+    >
+      <TaskLink task={task} />
+    </div>
+  );
 }
+
+
