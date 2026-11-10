@@ -11,7 +11,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: `http://localhost:${PORT}`, trace: "on-first-retry" },
+  // Keep a trace and a screenshot of every failure, first attempt included: flakes are diagnosable.
+  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: `rm -f .data/e2e.sqlite* ${E2E_OUTBOX} && pnpm db:migrate && pnpm build && pnpm start --port ${PORT}`,

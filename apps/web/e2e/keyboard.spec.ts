@@ -123,11 +123,13 @@ test.beforeAll(async ({ browser }) => {
   const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const owner = await ctx.newPage();
   await signIn(owner, "keys-owner@example.com");
-  await owner.getByLabel("Account name").fill("Keys Agency");
-  await owner.getByLabel("First workspace").fill("Keys Board");
-  await owner.getByRole("button", { name: "Create" }).click();
-  await expect(owner.getByRole("heading", { name: "Keys Board" })).toBeVisible();
-  workspaceId = /\/w\/([^/?#]+)/.exec(owner.url())![1]!;
+  // The onboarding form is covered by identity.spec.ts; here the API is enough.
+  const created = await owner.request.post("/api/v1/accounts", {
+    data: { accountName: "Keys Agency", workspaceName: "Keys Board" },
+    headers: { origin: new URL(owner.url()).origin },
+  });
+  expect(created.status(), await created.text()).toBe(200);
+  workspaceId = ((await created.json()) as { workspaceId: string }).workspaceId;
   await seed(workspaceId);
   await ctx.storageState({ path: ".data/keys-owner.json" });
 

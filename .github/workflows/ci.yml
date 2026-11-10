@@ -24,6 +24,12 @@ jobs:
       - run: pnpm test
       - run: pnpm --filter @gitwork/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: apps/web/test-results/
+          retention-days: 7
       # Builds and serves both runtimes; fails if libsql reaches the Worker bundle.
       - run: pnpm smoke
 

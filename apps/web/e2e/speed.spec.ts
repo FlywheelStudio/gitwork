@@ -110,11 +110,13 @@ test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const page = await context.newPage();
   await signIn(page, "speed-owner@example.com");
-  await page.getByLabel("Account name").fill("Speed Agency");
-  await page.getByLabel("First workspace").fill("Speed Board");
-  await page.getByRole("button", { name: "Create" }).click();
-  await expect(page.getByRole("heading", { name: "Speed Board" })).toBeVisible();
-  workspaceId = /\/w\/([^/?#]+)/.exec(page.url())![1]!;
+  // The onboarding form is covered by identity.spec.ts; here the API is enough.
+  const created = await page.request.post("/api/v1/accounts", {
+    data: { accountName: "Speed Agency", workspaceName: "Speed Board" },
+    headers: { origin: new URL(page.url()).origin },
+  });
+  expect(created.status(), await created.text()).toBe(200);
+  workspaceId = ((await created.json()) as { workspaceId: string }).workspaceId;
   await seedBigBoard(workspaceId);
   await context.storageState({ path: ".data/speed-owner.json" });
   await context.close();
@@ -191,8 +193,11 @@ test("the list renders only rows near the viewport, and J reaches rows far below
 test("the timeline draws only rows near the viewport, and J reaches rows far below", async ({ page }) => {
   await page.goto(`/w/${workspaceId}?view=timeline`);
   await expect(page.getByTestId("timeline-row").first()).toBeVisible();
-  const labels = await page.getByTestId("timeline-row").count();
-  const bars = await page.getByTestId("timeline-bar").count();
+  // One read of both counts: the timeline may re-render between two separate reads.
+  const { labels, bars } = await page.evaluate(() => ({
+    labels: document.querySelectorAll('[data-testid="timeline-row"]').length,
+    bars: document.querySelectorAll('[data-testid="timeline-bar"]').length,
+  }));
   console.log(`[speed] timeline rows in the DOM: ${labels} labels, ${bars} bars of ${TASKS}`);
   expect(labels).toBeLessThan(150);
   expect(bars).toBe(labels);
