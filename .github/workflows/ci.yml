@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      # No conflict copies; migration files match the drizzle journal.
+      - run: ./scripts/check-repo.sh
       - uses: actions/setup-node@v4
         with:
           node-version: 24

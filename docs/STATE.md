@@ -47,10 +47,7 @@ Chores:
   (`GET /app/hook/deliveries/{id}`) and replay them to the local webhook route, re-signed with the
   stored secret (the API returns parsed JSON, not the signed bytes). Diff real payloads against
   `test/fake-github.ts`; exercise linking and a task write with a real user token.
-- Workers bundle is 3.40 MiB gzipped, over the Free plan's 3 MiB (main was already 3.23 MiB).
-  Decide: require the Paid plan for Cloudflare, or cut the bundle.
-- Owner question (decision 020): should a workspace unlink when the Admin who linked it loses
-  GitHub access?
+- `pnpm smoke`: fail when the gzipped Worker bundle passes 10 MiB (decision 022).
 - Before a hosted launch: `/github/installed` should show org names only to users whose GitHub
   token can see the installation (now it shows none).
 - Upgrade Next 16.3.8 → 16.4.x with OpenNext ≥1.20.12 once it passes the pnpm age policy.

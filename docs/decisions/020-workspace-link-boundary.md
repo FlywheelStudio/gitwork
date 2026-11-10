@@ -1,6 +1,6 @@
 # 020 — Linking a workspace is checked with the user's own GitHub token
 
-Date: 2026-10-15 · Status: Accepted · Builds on 006, 017
+Date: 2026-10-15 · Status: Accepted (owner confirmed 2026-10-16) · Builds on 006, 017
 
 ## Context
 A workspace links one board and a list of repos (006). The App's installation token can read every
@@ -32,5 +32,5 @@ pull in. Without a check, an Admin of one workspace could link another customer'
 ## Consequences
 - The link reflects what the linking Admin could see **when they saved it**. If they later lose
   access, the workspace keeps its repos (the org's installation still covers them). Re-linking
-  re-checks. Open question for the owner: should losing access unlink?
+  re-checks. (Owner confirmed 2026-10-16: keep the link.)
 - Pull requests on the board are not tasks in v1; they are filtered out like any unknown type.
