@@ -40,7 +40,12 @@ echo "== worker"
 pnpm cf:build
 ../../scripts/scan-worker-bundle.sh .open-next
 # The deployable bundle is worker.ts wrapped around .open-next: scan what wrangler would upload.
-rm -rf .wrangler/dry && pnpm exec wrangler deploy --dry-run --outdir .wrangler/dry >/dev/null
+rm -rf .wrangler/dry && dry=$(pnpm exec wrangler deploy --dry-run --outdir .wrangler/dry 2>&1)
+# The Workers Paid plan allows 10 MiB gzipped per Worker (decision 022). Fail before a deploy would.
+gzip_kib=$(echo "$dry" | grep -oE 'gzip: [0-9.]+ KiB' | tail -1 | grep -oE '[0-9.]+')
+[ -n "$gzip_kib" ] || { echo "FAIL: wrangler did not report the bundle size"; echo "$dry" | tail -20; exit 1; }
+echo "  worker bundle: ${gzip_kib} KiB gzipped (limit 10240)"
+awk -v k="$gzip_kib" 'BEGIN { exit !(k <= 10240) }' || { echo "FAIL: worker bundle over 10 MiB gzipped"; exit 1; }
 ../../scripts/scan-worker-bundle.sh .wrangler/dry
 pnpm cf:migrate:local
 rm -rf .wrangler/tmp/email

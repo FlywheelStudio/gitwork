@@ -10,6 +10,7 @@ export {
 } from "./email";
 export { getSignupPolicy, setSignupPolicy, type SignupPolicy } from "./instance-settings";
 export { signInEmail } from "./sign-in-email";
+export { type ConfigIssue, type InstanceHealth, type RuntimeName, checkConfig, instanceHealth } from "./config-check";
 export { type BoardSnapshot, boardSnapshot, serializedSnapshot, snapshotEtag } from "./services/board-sync";
 export { mayCreateUser } from "./signup";
 export { ServiceError } from "./errors";

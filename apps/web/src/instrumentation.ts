@@ -1,6 +1,8 @@
-// Runs once per server start. Starts the Node reconcile timer; a no-op in the Worker build.
+// Runs once per server start, before requests. Node: config check, migrations (Docker), the
+// reconcile timer. A no-op in the Worker build.
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  const { startScheduler } = await import("@/server/runtime");
+  const { bootNode, startScheduler } = await import("@/server/runtime");
+  await bootNode();
   startScheduler();
 }
