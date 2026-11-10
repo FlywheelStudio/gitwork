@@ -42,8 +42,9 @@ no content that the real files lack.
 
 Fix:
 1. `git rm` the 22 files on `feature/live-check`.
-2. Move the repo out of `~/Documents` (for example `~/Developer/gitwork`), or stop iCloud sync
-   for the folder.
+2. Turn off iCloud Desktop & Documents sync, or move the whole `~/Documents/Flywheel` tree (for
+   example to `~/Flywheel`). Moving only `gitwork` breaks CLAUDE.md discovery (the workspace file
+   sits in `Flywheel/`), the `../../conventions` import, and the Claude memory folder's path key.
 3. Add a CI step that fails on any tracked file matching `* [0-9].*`.
 4. Add a `pnpm smoke` step that compares `wrangler d1 migrations list` with drizzle's
    `_journal.json`.
@@ -259,7 +260,8 @@ Q0 is done on PR #5. Q1–Q10 are decisions 023–032; Q5 amends 021.
 The owner answers these by number. Each has a recommended answer; "yes" accepts it. Decision records
 follow the answers.
 
-Q0. Remove the 24 iCloud copies on `feature/live-check` and move the repo out of `~/Documents`.
+Q0. Remove the 24 iCloud copies on `feature/live-check`, and stop iCloud from syncing the repo
+   (see step 0 for how).
 Q1. "Host open source" means a self-host release (Docker, Cloudflare button, guide). Public boards
    for open-source maintainers (no sign-in, personal-account repos) is a separate, later item.
 Q2. License `AGPL-3.0-only`, with a DCO sign-off for contributions, not a CLA. Trade-off: without a
