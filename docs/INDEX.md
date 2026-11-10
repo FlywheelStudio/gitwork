@@ -4,6 +4,7 @@
 |---|---|
 | [STATE.md](STATE.md) | Status board: in progress, completed, backlog. |
 | [spec.md](spec.md) | v1 product spec: glossary, roles, write path, architecture, build phases, risks. |
+| [roadmap.md](roadmap.md) | Draft plan: self-host release, Linear-class speed, keyboard, UI, parity matrix. Waiting on owner decisions. |
 
 ## Decisions
 
