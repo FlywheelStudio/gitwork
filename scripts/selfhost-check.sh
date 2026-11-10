@@ -6,7 +6,7 @@
 set -euo pipefail
 B="${1:?base url}"; OUTBOX="${2:?outbox file}"; EMAIL="${3:?admin email}"
 
-health=$(curl -sf --retry-connrefused --retry 90 --retry-delay 1 --retry-max-time 120 "$B/api/v1/health")
+health=$(curl -sf --retry-all-errors --retry 90 --retry-delay 1 --retry-max-time 120 "$B/api/v1/health")
 echo "  health -> $health"
 [[ "$health" == *'"driver":"sqlite"'* ]] || { echo "FAIL: health did not report the sqlite driver"; exit 1; }
 
