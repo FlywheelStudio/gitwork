@@ -1,34 +1,15 @@
 "use client";
-import { useState } from "react";
-import type { Snapshot } from "@/lib/board-store";
-import { BoardProvider, useBoard, useBoardContext, useSnapshot, useSyncState } from "./board-context";
-import { CommandLayer } from "./command-layer";
-import { PeekPanel } from "./tasks/peek-panel";
+import { useBoard, useBoardState, useSnapshot } from "./board-context";
 import { NewTaskButton } from "./tasks/new-task";
-import { KanbanView, ListView, TimelineView } from "./tasks/task-views";
-import { VIEWS, type ViewId } from "./views";
+import { ListView } from "./tasks/task-list";
+import { KanbanView, TimelineView } from "./tasks/task-views";
+import { VIEWS } from "./views";
 
-/** The tasks area of a linked workspace. View switches stay in the browser: no server render. */
-export function WorkspaceBoard(props: { workspaceId: string; initial: Snapshot; etag: string; initialView: ViewId }) {
-  return (
-    <BoardProvider workspaceId={props.workspaceId} initial={props.initial} etag={props.etag}>
-      <Board initialView={props.initialView} />
-    </BoardProvider>
-  );
-}
-
-function Board({ initialView }: { initialView: ViewId }) {
-  const [view, setView] = useState<ViewId>(initialView);
+/** The tasks area. The store, panel, and keys live in the workspace layout (workspace-shell.tsx). */
+export function WorkspaceBoard() {
   const board = useBoard();
   const { canWrite } = useSnapshot();
-  const { peekId, notice } = useBoardContext();
-
-  function show(next: ViewId) {
-    setView(next);
-    const url = new URL(window.location.href);
-    url.searchParams.set("view", next);
-    window.history.replaceState(window.history.state, "", url);
-  }
+  const { peekId, view, setView } = useBoardState();
 
   return (
     <div className={peekId ? "lg:pr-[28rem]" : undefined}>
@@ -39,7 +20,7 @@ function Board({ initialView }: { initialView: ViewId }) {
               <button
                 key={v.id}
                 type="button"
-                onClick={() => show(v.id)}
+                onClick={() => setView(v.id)}
                 title={`${v.label} view (V then ${v.label[0]})`}
                 aria-current={v.id === view ? "page" : undefined}
                 className={`rounded-md px-3 py-1 ${v.id === view ? "bg-background font-medium shadow-xs" : "text-muted-foreground"}`}
@@ -53,7 +34,6 @@ function Board({ initialView }: { initialView: ViewId }) {
               {board.board.title} on GitHub
             </a>
           )}
-          <SyncStatus />
         </div>
         {canWrite && board.board.available && board.repos.length > 0 && <NewTaskButton />}
       </div>
@@ -61,21 +41,6 @@ function Board({ initialView }: { initialView: ViewId }) {
       {view === "list" && <ListView />}
       {view === "board" && <KanbanView />}
       {view === "timeline" && <TimelineView />}
-      <PeekPanel />
-      <CommandLayer view={view} setView={show} />
-      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-4 flex justify-center">
-        {notice && <p className="pointer-events-auto rounded-lg bg-foreground px-3 py-2 text-sm text-background shadow-lg">{notice}</p>}
-      </div>
     </div>
-  );
-}
-
-function SyncStatus() {
-  const sync = useSyncState();
-  if (!sync.error) return null;
-  return (
-    <span className="text-xs text-amber-600" title={sync.error} data-testid="sync-error">
-      Not synced — retrying
-    </span>
   );
 }

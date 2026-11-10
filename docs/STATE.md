@@ -14,7 +14,7 @@ Last updated: 2026-11-10
 
 ## In Progress
 
-Track D (app shell, clear UI) — next after PR #9. Roadmap: `docs/roadmap.md` (PR #6).
+None. Next: the live GitHub check (blocked on the owner: tunnel + test repo), then Track E tier 1. Roadmap: `docs/roadmap.md` (PR #6).
 
 ## Completed
 
@@ -27,15 +27,24 @@ Track D (app shell, clear UI) — next after PR #9. Roadmap: `docs/roadmap.md` (
 | Phase 3 — Tasks on web (PR #4) | 2026-10-16 | [features/tasks.md](features/tasks.md) |
 | Track B — Speed foundation (PR #8, in review) | 2026-11-10 | [features/speed.md](features/speed.md) |
 | Track C — Keyboard and command menu (PR #9, in review) | 2026-11-10 | [features/keyboard.md](features/keyboard.md) |
+| Track D — App shell and clear UI (PR #10, in review) | 2026-11-10 | [features/shell.md](features/shell.md) |
 
 ## Backlog
 
-1. Phase 4 — Docs on web (editor, round-trip fidelity, images, PR fallback, conflicts)
-2. Phase 5 — Activity (audit log, history, inbox)
+Order: `docs/roadmap.md` (decisions 023–033).
+
+0. Live GitHub check (gate for Track E and Phase 4).
+1. Track E tier 1 — Triage, My tasks, priority/estimate/labels/assignees edits, comments, saved
+   views, inbox (merges Phase 5).
+2. Phase 4 — Docs on web (editor, round-trip fidelity, images, PR fallback, conflicts)
+3. Phase 5 — Activity (audit log, history, inbox)
 3. Phase 6 — Mac app v1
 4. Phase 7 — Ship (Cloudflare button, docker-compose, self-host guide)
 
 Chores:
+- **Server job queue for bulk edits (decision 027).** Bulk edits run in the browser, one by one,
+  for now (features/keyboard.md). Build the queue (decision 004 adapter) before bulk edits grow.
+- Virtualize the timeline (27–32 ms per switch at 2,000 tasks; the list and board are under 16 ms).
 - **Live GitHub check (approved 2026-10-15, blocked).** Nothing in Phases 2–3 has touched real
   GitHub. The 2026-10-15 attempt stopped at two points: the session may not open a tunnel
   (`cloudflared`), and no browser was connected for GitHub's "Create GitHub App" click. Plan

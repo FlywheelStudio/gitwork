@@ -6,14 +6,13 @@
 import { COMMANDS, type Command as KeyCommand, type CommandId, commandById, displayBinding } from "@gitwork/core";
 import type { FieldView, TaskView } from "@gitwork/server";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Input } from "@/components/kit";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fromInputValue, toInputValue } from "@/lib/field-values";
 import { type Handlers, isMac, useShortcuts } from "@/lib/keyboard";
 import { useBoard, useBoardContext, useSnapshot, useTaskActions } from "./board-context";
-import type { ViewId } from "./views";
 
 type FieldRole = "status" | "priority" | "estimate" | "due" | "cycle";
 
@@ -42,10 +41,11 @@ const slug = (title: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 
-export function CommandLayer({ view, setView }: { view: ViewId; setView: (v: ViewId) => void }) {
+export function CommandLayer() {
   const router = useRouter();
   const ctx = useBoardContext();
-  const { workspaceId, peekId, openPeek, closePeek, focusedId, setFocusedId, selected, setSelected, getOrder, notify, setNewTaskOpen } = ctx;
+  const { workspaceId, peekId, openPeek, closePeek, focusedId, setFocusedId, selected, setSelected, getOrder, notify, setNewTaskOpen, view, setView, setCommandHandlers } =
+    ctx;
   const board = useBoard();
   const { canWrite } = useSnapshot();
   const actions = useTaskActions();
@@ -144,6 +144,8 @@ export function CommandLayer({ view, setView }: { view: ViewId; setView: (v: Vie
 
   const scopes: ("global" | "list" | "task")[] = ["global", "list", ...(targets.length > 0 ? (["task"] as const) : [])];
   useShortcuts(handlers, scopes);
+  // Sidebar buttons run the same commands.
+  useEffect(() => setCommandHandlers(handlers));
 
   // ---- Menu content -------------------------------------------------------------------------
 

@@ -1,8 +1,6 @@
 import { can, invitableRoles } from "@gitwork/core";
 import { listInvites, listMembers } from "@gitwork/server";
-import { Header } from "@/components/header";
 import { requireWorkspacePage } from "@/server/pages";
-import { WorkspaceNav } from "../workspace-nav";
 import { MembersPanel } from "./members-panel";
 
 export default async function MembersPage({ params }: PageProps<"/w/[workspaceId]/members">) {
@@ -13,9 +11,7 @@ export default async function MembersPage({ params }: PageProps<"/w/[workspaceId
 
   return (
     <>
-      <Header email={user.email} />
-      <main className="mx-auto w-full max-w-4xl flex-1 p-6">
-        <WorkspaceNav id={workspaceId} name={access.workspace.name} role={access.role} />
+      <div className="mx-auto w-full max-w-4xl">
         <MembersPanel
           workspaceId={workspaceId}
           currentUserId={user.id}
@@ -23,7 +19,7 @@ export default async function MembersPage({ params }: PageProps<"/w/[workspaceId
           invites={invites.map((i) => ({ id: i.id, email: i.email, role: i.role }))}
           grantable={canInvite ? [...invitableRoles(access.role)] : []}
         />
-      </main>
+      </div>
     </>
   );
 }

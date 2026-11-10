@@ -5,6 +5,7 @@ import { Button, ErrorText, Input, Label, Select, Textarea } from "@/components/
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { useBoard, useBoardContext, useTaskActions } from "../board-context";
+import { WritePath } from "./peek-panel";
 
 export function NewTaskButton() {
   const board = useBoard();
@@ -59,6 +60,7 @@ export function NewTaskButton() {
         <DialogHeader>
           <DialogTitle>New task</DialogTitle>
           <DialogDescription>Creates a GitHub issue and adds it to the board.</DialogDescription>
+          <WritePath />
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div>

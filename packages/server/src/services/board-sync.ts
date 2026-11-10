@@ -1,6 +1,6 @@
 import { can } from "@gitwork/core";
 import type { Db } from "@gitwork/db";
-import type { WorkspaceAccess } from "./access";
+import { type WorkspaceAccess, hasLinkedGitHub } from "./access";
 import { type BoardView, listTasks } from "./tasks";
 
 /**
@@ -10,6 +10,11 @@ import { type BoardView, listTasks } from "./tasks";
 export interface BoardSnapshot {
   role: WorkspaceAccess["role"];
   canWrite: boolean;
+  /**
+   * The viewer's own state. `githubLinked` decides what the UI says a save does: write to GitHub
+   * as the viewer, or as the App with the viewer's name (decisions 008, 021).
+   */
+  viewer: { githubLinked: boolean };
   board: BoardView;
 }
 
@@ -17,6 +22,7 @@ export async function boardSnapshot(db: Db, access: WorkspaceAccess): Promise<Bo
   return {
     role: access.role,
     canWrite: can(access.actor, "tasks.write", access.settings),
+    viewer: { githubLinked: await hasLinkedGitHub(db, access.userId) },
     board: await listTasks(db, access),
   };
 }

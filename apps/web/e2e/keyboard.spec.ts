@@ -220,7 +220,7 @@ test("S sets status on the focused task, optimistically", async ({ page }) => {
 test("S on a selection edits every selected task; mod+Z undoes them as one step", async ({ page }) => {
   await open(page);
   const calls = await stubWrites(page, workspaceId);
-  for (const _ of [1, 2, 3]) {
+  for (let i = 0; i < 3; i++) {
     await page.keyboard.press("j");
     await page.keyboard.press("x");
   }
@@ -260,7 +260,8 @@ test("P, E, Shift+D, Shift+C edit priority, estimate, due date, and cycle", asyn
     { F_ktarget: { type: "date", date: "2026-12-24" } },
     { F_ksprint: { type: "iteration", iterationId: "k-it2" } },
   ]);
-  await expect(row(page, 1)).toContainText("2026-12-24");
+  await expect(row(page, 1).locator("time")).toHaveAttribute("datetime", "2026-12-24");
+  await expect(row(page, 1)).toContainText("Dec 24");
 });
 
 test("mod+Shift+X closes and reopens the focused task", async ({ page }) => {
@@ -355,6 +356,55 @@ test("keys typed in a field stay in the field", async ({ page }) => {
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
+test("keys work on every workspace page, and the store survives moving between pages", async ({ page }) => {
+  await open(page);
+  // Focus lives only in the client store: if it survives the round trip, so did the store.
+  await page.keyboard.press("j");
+  await page.keyboard.press("j");
+  let documents = 0;
+  page.on("request", (r) => {
+    if (r.isNavigationRequest()) documents++;
+  });
+  await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Members" }).click();
+  await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/members$`));
+  await page.keyboard.press("?");
+  await expect(page.getByTestId("shortcut-sheet")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByRole("dialog").getByRole("combobox").fill("Key task 5");
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("peek-panel").getByRole("heading", { name: "Key task 5" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // Back to tasks: the same store, so the focus set from the menu on the Members page (task 5)
+  // is still there; no page load on the way.
+  await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Tasks" }).click();
+  await expect(page.getByTestId("task-row")).toHaveCount(N);
+  expect(await focusedId(page)).toBe("PVTI_kb5");
+  expect(documents).toBe(0);
+  await expect(page.getByTestId("sync-status")).toContainText("Synced");
+});
+
+test("the panel and the new-task dialog say where an edit goes", async ({ page }) => {
+  await open(page);
+  await page.keyboard.press("j");
+  await page.keyboard.press(" ");
+  // This owner has not linked GitHub: the app writes, with their name.
+  await expect(page.getByTestId("peek-panel").getByTestId("write-path")).toHaveText("Edits save to GitHub through the Gitwork app, signed with your name.");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("c");
+  await expect(page.getByRole("dialog").getByTestId("write-path")).toBeVisible();
+});
+
+test("dark mode follows the system setting", async ({ browser }) => {
+  const ctx = await browser.newContext({ storageState: ".data/keys-owner.json", colorScheme: "dark" });
+  const page = await ctx.newPage();
+  await page.goto(`/w/${workspaceId}`);
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+  await ctx.close();
+});
+
 test.describe("as Read Only", () => {
   test.use({ storageState: ".data/keys-reader.json" });
 
@@ -371,6 +421,7 @@ test.describe("as Read Only", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.keyboard.press(" ");
     await expect(page.getByTestId("peek-panel").getByRole("heading", { name: "Key task 1" })).toBeVisible();
+    await expect(page.getByTestId("write-path")).toHaveCount(0);
     expect(writes).toBe(0);
   });
 });

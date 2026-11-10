@@ -130,6 +130,9 @@ describe.each(drivers)("/api/v1 tasks on $name", (driver: TestDriver) => {
     const body = (await res.json()) as { role: string; canWrite: boolean; board: { tasks: { title: string }[] } };
     expect(body.role).toBe("read_only");
     expect(body.canWrite).toBe(false);
+    expect((body as unknown as { viewer: unknown }).viewer).toEqual({ githubLinked: false });
+    const jane = (await (await sync("jane")).json()) as { viewer: unknown };
+    expect(jane.viewer).toEqual({ githubLinked: true });
     expect(body.board.tasks.map((t) => t.title).sort()).toEqual(["Homepage hero", "Pricing table"]);
 
     const again = await sync("rita", etag);

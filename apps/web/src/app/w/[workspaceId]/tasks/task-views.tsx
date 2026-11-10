@@ -1,14 +1,15 @@
 "use client";
-import type { TaskView } from "@gitwork/server";
+import type { FieldView, TaskView } from "@gitwork/server";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { useBoard, useBoardContext, useSnapshot, useTaskActions } from "../board-context";
-import { fieldText, optionOf, spanOf, treeOrder } from "./fields";
+import { useBoard, useBoardApi, useRowFocus, useSnapshot, useTaskActions } from "../board-context";
+import { optionOf, spanOf, treeOrder } from "./fields";
+import { Avatars, DueDate, Labels, PriorityIcon } from "./task-bits";
 
 /** Opens the side panel on a plain click; a modified click (new tab) follows the link. Hover prefetches the body. */
 export function TaskLink({ task, className }: { task: TaskView; className?: string }) {
-  const { workspaceId, openPeek, loadDetail } = useBoardContext();
+  const { workspaceId, openPeek, loadDetail } = useBoardApi();
   return (
     <Link
       href={`/w/${workspaceId}/tasks/${encodeURIComponent(task.id)}`}
@@ -37,8 +38,8 @@ export function Ref({ task }: { task: TaskView }) {
 }
 
 /** Registers the view's on-screen order, so J / K follow what the person sees. */
-function useOrder(ids: string[]) {
-  const { setOrder } = useBoardContext();
+export function useOrder(ids: string[]) {
+  const { setOrder } = useBoardApi();
   const key = ids.join("\n");
   useEffect(() => {
     setOrder(key ? key.split("\n") : []);
@@ -46,23 +47,24 @@ function useOrder(ids: string[]) {
 }
 
 /** Focus ring and selection state for one task's row or card. */
-function useTaskFocus(id: string) {
-  const { focusedId, setFocusedId, selected, setSelected } = useBoardContext();
+export function useTaskFocus(id: string) {
+  const { focus } = useBoardApi();
+  const { focused, isSelected } = useRowFocus(id);
   const toggle = () => {
-    const next = new Set(selected);
+    const next = new Set(focus.getState().selected);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    setSelected(next);
+    focus.setSelected(next);
   };
   return {
-    focused: focusedId === id,
-    isSelected: selected.has(id),
+    focused,
+    isSelected,
     toggle,
     attrs: {
       "data-task-id": id,
-      "data-focused": focusedId === id ? "true" : undefined,
-      "aria-selected": selected.has(id),
-      onClick: () => setFocusedId(id),
+      "data-focused": focused ? "true" : undefined,
+      "aria-selected": isSelected,
+      onClick: () => focus.setFocused(id),
     },
   };
 }
@@ -70,74 +72,6 @@ function useTaskFocus(id: string) {
 export function StateBadge({ task }: { task: TaskView }) {
   if (task.state !== "closed") return null;
   return <Badge variant="secondary">{task.stateReason === "not_planned" ? "Not planned" : "Closed"}</Badge>;
-}
-
-// ---- List -------------------------------------------------------------------------------------
-
-export function ListView() {
-  const { tasks, mapping } = useBoard();
-  const rows = treeOrder(tasks);
-  useOrder(rows.map((r) => r.task.id));
-  if (tasks.length === 0) return <Empty />;
-  return (
-    <div className="overflow-x-auto rounded-xl ring-1 ring-foreground/10">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-          <tr>
-            <th className="w-8 px-3 py-2">
-              <span className="sr-only">Selected</span>
-            </th>
-            <th className="px-3 py-2 font-medium">Task</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-            <th className="px-3 py-2 font-medium">Assignees</th>
-            <th className="px-3 py-2 font-medium">Target</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ task, depth }) => (
-            <ListRow key={task.id} task={task}>
-              <td className="px-3 py-2">
-                <div className="flex flex-wrap items-center gap-2" style={{ paddingLeft: depth * 20 }}>
-                  {depth > 0 && <span className="text-muted-foreground">↳</span>}
-                  <TaskLink task={task} />
-                  <Ref task={task} />
-                  <StateBadge task={task} />
-                  {task.labels.map((l) => (
-                    <Badge key={l.name} variant="outline">
-                      {l.name}
-                    </Badge>
-                  ))}
-                </div>
-              </td>
-              <td className="px-3 py-2">{fieldText(mapping.kanbanFieldId ? task.fields[mapping.kanbanFieldId] : undefined)}</td>
-              <td className="px-3 py-2 text-muted-foreground">{task.assignees.map((a) => a.login).join(", ")}</td>
-              <td className="px-3 py-2 text-muted-foreground">
-                {fieldText(mapping.targetFieldId ? task.fields[mapping.targetFieldId] : undefined)}
-              </td>
-            </ListRow>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ListRow({ task, children }: { task: TaskView; children: React.ReactNode }) {
-  const { focused, isSelected, toggle, attrs } = useTaskFocus(task.id);
-  return (
-    <tr {...attrs} className={`group border-t border-foreground/5 ${focused ? "bg-muted" : ""} ${isSelected ? "bg-primary/5" : ""}`} data-testid="task-row">
-      <td className="px-3 py-2">
-        <input
-          type="checkbox"
-          aria-label={`Select ${task.title}`}
-          checked={isSelected}
-          onChange={toggle}
-          className={`size-3.5 ${isSelected ? "" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
-        />
-      </td>
-      {children}
-    </tr>
-  );
 }
 
 // ---- Kanban -----------------------------------------------------------------------------------
@@ -148,6 +82,11 @@ export function KanbanView() {
   const { setField } = useTaskActions();
   const [dragging, setDragging] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState(mapping.kanbanFieldId);
+  // Long columns show their first 50 cards; "Show more" adds 50. Keeps a 2,000-task board quick.
+  const [limits, setLimits] = useState<Record<string, number>>({});
+  const limitOf = (key: string) => limits[key] ?? 50;
+  const priority = fields.find((f) => f.dataType === "SINGLE_SELECT" && /^priority$/i.test(f.name));
+  const [now] = useState(() => Date.now());
   const singleSelects = fields.filter((f) => f.dataType === "SINGLE_SELECT");
   const field = singleSelects.find((f) => f.id === groupBy);
   const columns = field
@@ -156,8 +95,8 @@ export function KanbanView() {
         cards: tasks.filter((t) => optionOf(t, field.id) === col.id),
       }))
     : [];
-  // J / K walk down each column, then on to the next.
-  useOrder(columns.flatMap((c) => c.cards.map((t) => t.id)));
+  // J / K walk down each column's shown cards, then on to the next column.
+  useOrder(columns.flatMap((c) => c.cards.slice(0, limitOf(c.id ?? "none")).map((t) => t.id)));
   if (!field) return <p className="text-sm text-muted-foreground">This board has no single-select field to group by.</p>;
 
   // Optimistic: the card moves at once; a refusal moves it back with a notice.
@@ -197,9 +136,19 @@ export function KanbanView() {
               <h3 className="flex items-center justify-between px-1 text-sm font-medium">
                 {col.name} <span className="text-xs text-muted-foreground">{cards.length}</span>
               </h3>
-              {cards.map((task) => (
-                <KanbanCard key={task.id} task={task} draggable={canWrite} onDrag={setDragging} />
+              {cards.slice(0, limitOf(col.id ?? "none")).map((task) => (
+                <KanbanCard key={task.id} task={task} draggable={canWrite} onDrag={setDragging} priority={priority} target={mapping.targetFieldId} now={now} />
               ))}
+              {cards.length > limitOf(col.id ?? "none") && (
+                <button
+                  type="button"
+                  className="rounded-md px-2 py-1 text-left text-xs text-muted-foreground hover:bg-muted"
+                  onClick={() => setLimits({ ...limits, [col.id ?? "none"]: limitOf(col.id ?? "none") + 50 })}
+                >
+                  Show {Math.min(50, cards.length - limitOf(col.id ?? "none"))} more of {cards.length - limitOf(col.id ?? "none")}
+                </button>
+              )}
+              {cards.length === 0 && <p className="px-1 text-xs text-muted-foreground">Nothing here.</p>}
             </section>
           );
         })}
@@ -208,7 +157,15 @@ export function KanbanView() {
   );
 }
 
-function KanbanCard({ task, draggable, onDrag }: { task: TaskView; draggable: boolean; onDrag: (id: string | null) => void }) {
+function KanbanCard(props: {
+  task: TaskView;
+  draggable: boolean;
+  onDrag: (id: string | null) => void;
+  priority: FieldView | undefined;
+  target: string | null;
+  now: number;
+}) {
+  const { task, draggable, onDrag } = props;
   const { focused, isSelected, attrs } = useTaskFocus(task.id);
   return (
     <article
@@ -222,10 +179,18 @@ function KanbanCard({ task, draggable, onDrag }: { task: TaskView; draggable: bo
       className={`space-y-1 rounded-lg bg-card p-2 text-sm shadow-xs ring-1 ${focused ? "ring-2 ring-primary" : "ring-foreground/10"} ${isSelected ? "bg-primary/5" : ""}`}
       data-testid="task-card"
     >
-      <TaskLink task={task} />
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex items-center gap-2">
+        {props.priority && <PriorityIcon value={task.fields[props.priority.id]} field={props.priority} />}
         <Ref task={task} />
         <StateBadge task={task} />
+        <span className="ml-auto">
+          <Avatars task={task} />
+        </span>
+      </div>
+      <TaskLink task={task} className="line-clamp-2 font-medium hover:underline" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Labels task={task} />
+        <DueDate value={props.target ? task.fields[props.target] : undefined} task={task} now={props.now} />
       </div>
     </article>
   );
@@ -348,6 +313,4 @@ function TimelineLabel({ task }: { task: TaskView }) {
   );
 }
 
-function Empty() {
-  return <p className="text-sm text-muted-foreground">No tasks yet.</p>;
-}
+

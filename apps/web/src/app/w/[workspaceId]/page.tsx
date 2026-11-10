@@ -1,31 +1,20 @@
 import { authorize } from "@gitwork/core";
-import { type BoardSnapshot, installUrl, serializedSnapshot } from "@gitwork/server";
+import { getWorkspaceLink, installUrl } from "@gitwork/server";
 import Link from "next/link";
-import { Header } from "@/components/header";
 import { Card } from "@/components/kit";
 import { getDeps } from "@/server/context";
 import { requireWorkspacePage } from "@/server/pages";
-import { VIEWS } from "./views";
 import { WorkspaceBoard } from "./workspace-board";
-import { WorkspaceNav } from "./workspace-nav";
 
-export default async function WorkspacePage({ params, searchParams }: PageProps<"/w/[workspaceId]">) {
+export default async function WorkspacePage({ params }: PageProps<"/w/[workspaceId]">) {
   const { workspaceId } = await params;
-  const { view: viewParam } = await searchParams;
-  const { user, access, db } = await requireWorkspacePage(workspaceId, `/w/${workspaceId}`);
-  // The same bytes and ETag as GET /sync, so the client's first poll is a 304.
-  const { body, etag } = await serializedSnapshot(db, access);
-  const snapshot = JSON.parse(body) as BoardSnapshot;
-  const view = VIEWS.find((v) => v.id === viewParam)?.id ?? "list";
+  const { access, db } = await requireWorkspacePage(workspaceId, `/w/${workspaceId}`);
 
-  if (!snapshot.board.linked) {
+  if (!(await getWorkspaceLink(db, workspaceId))) {
     const { github } = await getDeps();
     const install = authorize(access.actor, "github.install_app", access.settings);
     return (
-      <>
-        <Header email={user.email} />
-        <main className="mx-auto w-full max-w-6xl flex-1 p-6">
-          <WorkspaceNav id={workspaceId} name={access.workspace.name} role={access.role} />
+      <div className="mx-auto max-w-3xl">
           <Card className="space-y-3">
             <p className="text-sm text-muted-foreground">Tasks arrive once this workspace is linked to a GitHub board and repos.</p>
             {install.ok && github && (
@@ -48,18 +37,9 @@ export default async function WorkspacePage({ params, searchParams }: PageProps<
             )}
             {install.ok && !github && <p className="text-sm text-muted-foreground">The GitHub App is not set up on this instance yet.</p>}
           </Card>
-        </main>
-      </>
+      </div>
     );
   }
 
-  return (
-    <>
-      <Header email={user.email} />
-      <main className="mx-auto w-full max-w-6xl flex-1 p-6">
-        <WorkspaceNav id={workspaceId} name={access.workspace.name} role={access.role} />
-        <WorkspaceBoard workspaceId={workspaceId} initial={snapshot} etag={etag} initialView={view} />
-      </main>
-    </>
-  );
+  return <WorkspaceBoard />;
 }

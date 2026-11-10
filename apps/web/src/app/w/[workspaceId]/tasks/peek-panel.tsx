@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button, Input, Select } from "@/components/kit";
 import { Badge } from "@/components/ui/badge";
 import { fromInputValue, toInputValue } from "@/lib/field-values";
-import { useBoard, useBoardContext, useSnapshot, useTaskActions } from "../board-context";
+import { useBoard, useBoardApi, useBoardState, useSnapshot, useTaskActions } from "../board-context";
 import { editableFields } from "./fields";
 import { Ref, StateBadge } from "./task-views";
 
@@ -14,7 +14,7 @@ import { Ref, StateBadge } from "./task-views";
  * same frame as the click. Edits are optimistic (useTaskActions).
  */
 export function PeekPanel() {
-  const { peekId, closePeek, workspaceId } = useBoardContext();
+  const { peekId, closePeek, workspaceId } = useBoardState();
   const { tasks } = useBoard();
   const task = peekId ? tasks.find((t) => t.id === peekId) : undefined;
 
@@ -50,7 +50,7 @@ export function PeekPanel() {
 }
 
 function PeekBody({ task }: { task: TaskView }) {
-  const { loadDetail } = useBoardContext();
+  const { loadDetail } = useBoardApi();
   const { fields } = useBoard();
   const { canWrite } = useSnapshot();
   const { setState } = useTaskActions();
@@ -94,6 +94,7 @@ function PeekBody({ task }: { task: TaskView }) {
           {task.state === "closed" ? "Reopen task" : "Close task"}
         </Button>
       )}
+      {canWrite && <WritePath />}
 
       <section aria-label="Description" className="border-t border-border pt-4">
         {detail ? (
@@ -109,6 +110,23 @@ function PeekBody({ task }: { task: TaskView }) {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * Says where an edit goes before the person makes it (decisions 008, 021): their own GitHub
+ * account, or the Gitwork app with their name on it.
+ */
+export function WritePath() {
+  const { viewer } = useSnapshot();
+  return viewer.githubLinked ? (
+    <p className="text-xs text-muted-foreground" data-testid="write-path" title="If your GitHub account cannot write to this repo, the Gitwork app saves it and adds your name.">
+      Edits save to GitHub as you.
+    </p>
+  ) : (
+    <p className="text-xs text-muted-foreground" data-testid="write-path" title="Link GitHub in your settings to save as yourself.">
+      Edits save to GitHub through the Gitwork app, signed with your name.
+    </p>
   );
 }
 
