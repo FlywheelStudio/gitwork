@@ -1,50 +1,10 @@
 "use client";
-import type { ProjectFieldValue } from "@gitwork/db";
 import type { FieldView, TaskDetail } from "@gitwork/server";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Card, ErrorText, Input, Label, Select, Textarea } from "@/components/kit";
 import { api } from "@/lib/api";
-
-type FieldInput =
-  | { type: "single_select"; optionId: string }
-  | { type: "date"; date: string }
-  | { type: "text"; text: string }
-  | { type: "number"; number: number }
-  | { type: "iteration"; iterationId: string };
-
-/** The form's string value for a field, and back. */
-function toInputValue(v: ProjectFieldValue | undefined): string {
-  if (!v) return "";
-  switch (v.type) {
-    case "single_select":
-      return v.optionId;
-    case "iteration":
-      return v.iterationId;
-    case "date":
-      return v.date;
-    case "text":
-      return v.text;
-    case "number":
-      return String(v.number);
-  }
-}
-
-function fromInputValue(field: FieldView, value: string): FieldInput | null {
-  if (value === "") return null;
-  switch (field.dataType) {
-    case "SINGLE_SELECT":
-      return { type: "single_select", optionId: value };
-    case "ITERATION":
-      return { type: "iteration", iterationId: value };
-    case "DATE":
-      return { type: "date", date: value };
-    case "NUMBER":
-      return { type: "number", number: Number(value) };
-    default:
-      return { type: "text", text: value };
-  }
-}
+import { fromInputValue, toInputValue } from "@/lib/field-values";
 
 export function TaskEditor({ workspaceId, task, fields }: { workspaceId: string; task: TaskDetail; fields: FieldView[] }) {
   const router = useRouter();

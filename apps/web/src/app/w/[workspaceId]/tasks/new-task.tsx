@@ -1,18 +1,21 @@
 "use client";
-import type { FieldView } from "@gitwork/server";
-import { useRouter } from "next/navigation";
+import type { TaskView } from "@gitwork/server";
 import { useState } from "react";
 import { Button, ErrorText, Input, Label, Select, Textarea } from "@/components/kit";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { useBoard, useBoardContext, useTaskActions } from "../board-context";
 
-export function NewTaskButton(props: {
-  workspaceId: string;
-  repos: { nodeId: string; fullName: string }[];
-  defaultRepo: string | null;
-  statusField: FieldView | null;
-}) {
-  const router = useRouter();
+export function NewTaskButton() {
+  const board = useBoard();
+  const { workspaceId, openPeek } = useBoardContext();
+  const { upsert } = useTaskActions();
+  const props = {
+    workspaceId,
+    repos: board.repos,
+    defaultRepo: board.lastRepoNodeId,
+    statusField: board.fields.find((f) => f.id === board.mapping.kanbanFieldId) ?? null,
+  };
   const [open, setOpen] = useState(false);
   const [repo, setRepo] = useState(props.defaultRepo ?? props.repos[0]?.nodeId ?? "");
   const [title, setTitle] = useState("");
@@ -26,7 +29,7 @@ export function NewTaskButton(props: {
     setBusy(true);
     setError("");
     try {
-      const { task } = await api<{ task: { id: string } }>("POST", `/workspaces/${props.workspaceId}/tasks`, {
+      const { task } = await api<{ task: TaskView }>("POST", `/workspaces/${props.workspaceId}/tasks`, {
         repoNodeId: repo,
         title,
         body: body || undefined,
@@ -35,7 +38,9 @@ export function NewTaskButton(props: {
       setOpen(false);
       setTitle("");
       setBody("");
-      router.push(`/w/${props.workspaceId}/tasks/${encodeURIComponent(task.id)}`);
+      // The new task joins the store and opens beside the list: no page load.
+      upsert(task);
+      openPeek(task.id);
     } catch (err) {
       setError((err as Error).message);
     } finally {

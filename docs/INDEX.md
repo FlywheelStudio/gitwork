@@ -30,6 +30,7 @@
 | 019 | [Instance admins and email from the environment; wizard creates the GitHub App](decisions/019-instance-setup.md) |
 | 020 | [Linking a workspace is checked with the user's own GitHub token](decisions/020-workspace-link-boundary.md) |
 | 021 | [Task writes: user token first, App on refusal, synchronous](decisions/021-task-writes.md) |
+| 033 | [Sync by snapshot ETag, not a change table; no IndexedDB yet](decisions/033-snapshot-etag-sync.md) |
 
 ## Features
 
@@ -39,3 +40,4 @@
 | [features/identity.md](features/identity.md) | Email-code sign-in, accounts, workspaces, roles, invites, GitHub link, `/api/v1`. |
 | [features/github-app.md](features/github-app.md) | Setup wizard, GitHub App, installations, webhooks, cache, reconcile. |
 | [features/tasks.md](features/tasks.md) | Board and repo link, list / kanban / timeline, task edits, visibility filter, audit log. |
+| [features/speed.md](features/speed.md) | Client store, /sync with ETag, optimistic edits, side panel, measured budgets. |
