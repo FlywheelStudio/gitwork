@@ -15,8 +15,10 @@ Shipped 2026-11-10 (roadmap Track C). Branch `feature/keyboard`, on top of Track
   and undo as one step (`mod+Z`).
 - **Copy**: `mod+.` ID (`org/repo#12`), `mod+Shift+,` Gitwork URL, `mod+Shift+.` branch name
   (`12-title-slug`, GitHub's style).
-- **Navigation**: `G` then `T` / `M` / `S` (tasks, members, settings). **Views**: `mod+B` list ↔
-  board; `V` then `L` / `B` / `T`.
+- **Navigation**: `G` then `S` (settings). Tasks and Members are in the command menu. `G` then
+  `I` / `M` / `T` / `V` stay free for Inbox / My tasks / Triage / Views (Linear's meanings); a test
+  keeps every reserved key (`RESERVED` in keymap.ts) unbound until its page exists.
+  **Views**: `mod+B` list ↔ board; `V` then `L` / `B` / `T`.
 - Read Only: reading keys work; edit keys show "Your role cannot edit tasks." and send nothing.
 
 ## How it works
@@ -40,14 +42,16 @@ letters stay free. The most specific active scope wins.
 `inInputs` (`mod+K`, `Escape`). While a modal is open, only `mod+K` applies.
 
 ## Testing
-- `keymap.test.ts`: no two commands share keys in one scope (**proven red** with a duplicate);
+- `keymap.test.ts`: no two commands share keys in one scope (**proven red** with a duplicate); no
+  command takes a reserved key;
   unique ids; no sequence start is also a single key; only modifier chords and Escape fire in
   inputs; platform modifiers; shifted punctuation (`mod+Shift+.` arrives as `>`); sequences and
   their timeout; scopes; display strings.
 - E2E `keyboard.spec.ts` (15 tests, one per shortcut group): the sheet; focus movement and the
   panel following it; Enter; selection keys; `S` single and bulk with one-step undo; `P`, `E`,
   `Shift+D`, `Shift+C` with the exact PATCH bodies; close / reopen; the three copy keys (clipboard);
-  the menu running a command and finding a task; `/` search; view keys; `G` sequences; `C`; the
+  the menu running a command and finding a task; `/` search; view keys; `G` then `S`, a reserved
+  `G` then `M` doing nothing, and Members from the menu; `C`; the
   typing guard with a positive control; Read Only sends no write.
 
 ## Gotchas

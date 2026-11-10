@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COMMANDS, type KeyInput, chordOf, createMatcher, displayBinding, normalizeBinding } from "./keymap";
+import { COMMANDS, type KeyInput, RESERVED, chordOf, createMatcher, displayBinding, normalizeBinding } from "./keymap";
 
 const key = (k: string, mods: Partial<KeyInput> = {}): KeyInput => ({ key: k, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...mods });
 const ALL = ["global", "list", "task"] as const;
@@ -13,6 +13,12 @@ describe("keymap data", () => {
         expect(seen.get(slot), `${c.id} and ${seen.get(slot)} both use ${k} in ${c.scope}`).toBeUndefined();
         seen.set(slot, c.id);
       }
+    }
+  });
+
+  it("leaves Linear's keys for unbuilt pages free", () => {
+    for (const c of COMMANDS) {
+      for (const k of c.keys) expect(RESERVED[normalizeBinding(k)], `${c.id} takes reserved ${k}`).toBeUndefined();
     }
   });
 
@@ -73,7 +79,7 @@ describe("createMatcher", () => {
     const m = createMatcher(true);
     expect(m.press(key("g"), [...ALL], 0)).toBe("pending");
     expect(m.press(key("Shift", { shiftKey: true }), [...ALL], 10)).toBeNull();
-    expect(m.press(key("m"), [...ALL], 20)).toBe("go.members");
+    expect(m.press(key("s"), [...ALL], 20)).toBe("go.settings");
   });
 
   it("only matches commands in an active scope", () => {
@@ -90,5 +96,6 @@ describe("displayBinding", () => {
     expect(displayBinding("mod+k", false)).toBe("Ctrl+K");
     expect(displayBinding("g s", true)).toBe("G then S");
     expect(displayBinding("shift+d", true)).toBe("⇧D");
+    expect(displayBinding(undefined, true)).toBe("");
   });
 });

@@ -11,7 +11,7 @@ export type Scope = "global" | "list" | "task";
 export interface Command {
   id: CommandId;
   label: string;
-  /** Alternative bindings for the same command. */
+  /** Alternative bindings for the same command. Empty: command menu only. */
   keys: string[];
   scope: Scope;
   /** Group heading in the shortcut sheet. */
@@ -29,8 +29,10 @@ export const COMMANDS = [
   { id: "edit.undo", label: "Undo", keys: ["mod+z"], scope: "global", group: "General" },
   { id: "escape", label: "Close panel, then clear selection", keys: ["escape"], scope: "global", group: "General", inInputs: true },
   // Navigation
-  { id: "go.tasks", label: "Go to tasks", keys: ["g t"], scope: "global", group: "Navigation" },
-  { id: "go.members", label: "Go to members", keys: ["g m"], scope: "global", group: "Navigation" },
+  // G then I / M / T / V are Linear's Inbox / My tasks / Triage / Views; they arrive with those
+  // pages (RESERVED below). Tasks and Members are menu-only until then.
+  { id: "go.tasks", label: "Go to tasks", keys: [], scope: "global", group: "Navigation" },
+  { id: "go.members", label: "Go to members", keys: [], scope: "global", group: "Navigation" },
   { id: "go.settings", label: "Go to settings", keys: ["g s"], scope: "global", group: "Navigation" },
   // Views
   { id: "view.toggle", label: "Switch list ↔ board", keys: ["mod+b"], scope: "global", group: "Views" },
@@ -59,6 +61,22 @@ export const COMMANDS = [
 ] as const satisfies readonly (Omit<Command, "id"> & { id: string })[];
 
 export type CommandId = (typeof COMMANDS)[number]["id"];
+
+/**
+ * Keys that keep Linear's meaning for pages Gitwork has not built yet (decision 028, roadmap
+ * Track C). No other command may take them, so nobody learns a key that later changes.
+ */
+export const RESERVED: Record<string, string> = {
+  "g i": "Go to inbox",
+  "g m": "Go to my tasks",
+  "g t": "Go to triage",
+  "g v": "Go to views",
+  f: "Filter",
+  a: "Assignees",
+  i: "Assign to me",
+  l: "Labels",
+  "shift+p": "Project",
+};
 
 /** The keys of one keyboard event, as the matcher needs them. */
 export interface KeyInput {
@@ -103,7 +121,7 @@ export function normalizeBinding(binding: string): string {
 
 /** The first chord of every multi-chord binding: pressing one starts a sequence. */
 const SEQUENCE_STARTS = new Set(
-  COMMANDS.flatMap((c) => c.keys.filter((k) => k.includes(" ")).map((k) => normalizeBinding(k).split(" ")[0]!)),
+  (COMMANDS as readonly Command[]).flatMap((c) => c.keys.filter((k) => k.includes(" ")).map((k) => normalizeBinding(k).split(" ")[0]!)),
 );
 
 export interface Matcher {
@@ -154,8 +172,9 @@ export function createMatcher(isMac: boolean, sequenceMs = 1_000): Matcher {
   };
 }
 
-/** Display form of a binding: "⌘K", "G then S". */
-export function displayBinding(binding: string, isMac: boolean): string {
+/** Display form of a binding: "⌘K", "G then S". An empty binding (menu only) shows nothing. */
+export function displayBinding(binding: string | undefined, isMac: boolean): string {
+  if (!binding) return "";
   const names: Record<string, string> = isMac
     ? { mod: "⌘", shift: "⇧", alt: "⌥", escape: "Esc", enter: "↵", space: "Space", arrowdown: "↓", arrowup: "↑" }
     : { mod: "Ctrl+", shift: "Shift+", alt: "Alt+", escape: "Esc", enter: "Enter", space: "Space", arrowdown: "↓", arrowup: "↑" };

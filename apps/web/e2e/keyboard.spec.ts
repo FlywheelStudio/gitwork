@@ -314,15 +314,19 @@ test("mod+B toggles list and board; V then T shows the timeline", async ({ page 
   await expect(page.getByRole("heading", { name: "Unscheduled" })).toBeVisible();
 });
 
-test("G then M / S / T navigate", async ({ page }) => {
+test("G then S opens settings; members is in the command menu; G then M stays free for My tasks", async ({ page }) => {
   await open(page);
   await page.keyboard.press("g");
-  await page.keyboard.press("m");
-  await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/members$`));
-  await open(page);
+  await page.keyboard.press("m"); // reserved (Linear: My tasks): does nothing yet
+  await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}\\?view=list$`));
   await page.keyboard.press("g");
   await page.keyboard.press("s");
   await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/settings$`));
+  await open(page);
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByRole("dialog").getByRole("combobox").fill("go to members");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`/w/${workspaceId}/members$`));
 });
 
 test("C opens the new-task dialog", async ({ page }) => {

@@ -173,7 +173,7 @@ export function CommandLayer({ view, setView }: { view: ViewId; setView: (v: Vie
   const available = (COMMANDS as readonly KeyCommand[]).filter(
     (c) => handlers[c.id] && c.id !== "menu.open" && c.id !== "escape" && (c.scope !== "task" || targets.length > 0) && !c.id.startsWith("list."),
   );
-  const keysOf = (c: KeyCommand) => displayBinding(c.keys[0]!, mac);
+  const keysOf = (c: KeyCommand) => displayBinding(c.keys[0], mac);
 
   const pickField = mode?.kind === "pick" || mode?.kind === "value" ? roles[mode.role] : undefined;
   const targetLabel = targets.length === 1 ? `“${targets[0]!.title}”` : `${targets.length} tasks`;
@@ -330,6 +330,7 @@ function ShortcutSheet({ open, onOpenChange, mac }: { open: boolean; onOpenChang
                     <div key={c.id} className="flex justify-between gap-4 py-1.5">
                       <dt>{c.label}</dt>
                       <dd className="flex gap-1 text-muted-foreground">
+                        {c.keys.length === 0 && <span className="text-xs">Command menu</span>}
                         {c.keys.map((k) => (
                           <kbd key={k} className="rounded border border-border bg-muted px-1.5 font-mono text-xs">
                             {displayBinding(k, mac)}
