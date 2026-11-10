@@ -1,6 +1,6 @@
 # 021 — Task writes: user token first, App on refusal, synchronous
 
-Date: 2026-10-15 · Status: Accepted · Builds on 007, 008, 009
+Date: 2026-10-15 · Status: Accepted (owner confirmed the defaults 2026-10-16) · Builds on 007, 008, 009
 
 ## Context
 Decision 008 says linked users act as themselves and everyone else writes through the App. Two

@@ -31,6 +31,7 @@
 | 019 | [Instance admins and email from the environment; wizard creates the GitHub App](decisions/019-instance-setup.md) |
 | 020 | [Linking a workspace is checked with the user's own GitHub token](decisions/020-workspace-link-boundary.md) |
 | 021 | [Task writes: user token first, App on refusal, synchronous](decisions/021-task-writes.md) |
+| 022 | [Cloudflare hosting requires the Workers Paid plan](decisions/022-cloudflare-paid-plan.md) |
 | 023 | [Self-host release scope](decisions/023-self-host-release.md) |
 | 024 | [AGPL-3.0-only confirmed; contributions under a DCO](decisions/024-license-dco.md) |
 | 025 | [Self-host v0.1 ships with tasks only, before docs](decisions/025-release-order.md) |
