@@ -17,7 +17,8 @@
     "check:repo": "./scripts/check-repo.sh",
     "db:migrate": "pnpm --filter @gitwork/web db:migrate",
     "db:generate": "pnpm --filter @gitwork/db generate",
-    "preview": "pnpm --filter @gitwork/web preview"
+    "preview": "pnpm --filter @gitwork/web preview",
+    "deploy:cf": "pnpm --filter @gitwork/web cf:deploy"
   },
   "devDependencies": {
     "eslint": "9.39.5",

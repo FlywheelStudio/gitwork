@@ -1,4 +1,5 @@
 import { getSignupPolicy } from "@gitwork/server";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/header";
 import { Card } from "@/components/kit";
@@ -26,7 +27,12 @@ export default async function SetupPage({ searchParams }: PageProps<"/setup">) {
     <>
       <Header email={user.email} />
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 p-6">
-        <h1 className="text-xl font-semibold">Instance setup</h1>
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-xl font-semibold">Instance setup</h1>
+          <Link href="/setup/health" className="text-sm underline">
+            Instance health
+          </Link>
+        </div>
         {typeof error === "string" && <p role="alert" className="text-sm text-red-600">{ERRORS[error] ?? "Setup failed."}</p>}
 
         <Card>

@@ -1,0 +1,7 @@
+# Used by `docker compose --profile caddy up -d`. Caddy gets and renews the TLS certificate.
+# It overwrites X-Real-IP with the real client address, so set TRUSTED_IP_HEADER=x-real-ip in .env.
+{$GITWORK_DOMAIN} {
+	reverse_proxy gitwork:3000 {
+		header_up X-Real-IP {remote_host}
+	}
+}

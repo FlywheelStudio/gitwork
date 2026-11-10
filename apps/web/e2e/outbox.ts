@@ -8,20 +8,28 @@ interface Message {
   text: string;
 }
 
-/** The newest email to `to` whose text matches `pattern`. Polls: sending is async. */
-export async function lastEmail(to: string, pattern: RegExp): Promise<RegExpExecArray> {
+function readMessages(): Message[] {
+  try {
+    return readFileSync(E2E_OUTBOX, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l) as Message);
+  } catch {
+    return [];
+  }
+}
+
+/** How many emails `to` has received so far. Pass it to `signInCode` to wait for a newer one. */
+export const emailCount = (to: string) => readMessages().filter((m) => m.to === to).length;
+
+/**
+ * The newest email to `to` whose text matches `pattern`. Polls: sending is async. With `after`,
+ * waits until `to` has more than `after` emails, so a second sign-in never reads the first code.
+ */
+export async function lastEmail(to: string, pattern: RegExp, after = 0): Promise<RegExpExecArray> {
   let found: RegExpExecArray | null = null;
   await expect
     .poll(() => {
-      let lines: string[] = [];
-      try {
-        lines = readFileSync(E2E_OUTBOX, "utf8").trim().split("\n");
-      } catch {
-        return false;
-      }
-      const messages = lines.filter(Boolean).map((l) => JSON.parse(l) as Message);
-      const match = messages
-        .filter((m) => m.to === to)
+      const mine = readMessages().filter((m) => m.to === to);
+      if (mine.length <= after) return false;
+      const match = mine
         .map((m) => pattern.exec(m.text))
         .filter((m): m is RegExpExecArray => m !== null)
         .at(-1);
@@ -32,4 +40,4 @@ export async function lastEmail(to: string, pattern: RegExp): Promise<RegExpExec
   return found!;
 }
 
-export const signInCode = async (email: string) => (await lastEmail(email, /sign-in code is (\d{6})/))[1]!;
+export const signInCode = async (email: string, after = 0) => (await lastEmail(email, /sign-in code is (\d{6})/, after))[1]!;

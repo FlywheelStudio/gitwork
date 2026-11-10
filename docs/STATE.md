@@ -1,19 +1,24 @@
 # State
 
-Last updated: 2026-10-16
+Last updated: 2026-11-10
 
 ## Resume here
 
-- PRs #1–#4 (Phases 0–3) are merged. Next: Phase 4 — Docs on web.
-- **Live GitHub check: still not done.** It needs a person (or a connected browser) to click
-  "Create GitHub App" on github.com, and a public webhook URL. See Chores.
+- Plan: `docs/roadmap.md` (PR #6), accepted 2026-11-10 with decisions 023–032. Order: live GitHub
+  check → self-host v0.1 → speed / keyboard / layout → Linear parity tier 1 → Phase 4 Docs.
+- Open PRs: #5 (decisions 020–022, iCloud copies removed), #6 (roadmap), #7 (self-host, Track A).
+- **Live GitHub check: still not done.** The session's permission rules block a `cloudflared`
+  tunnel. The owner must start the tunnel or allow it. See Chores.
+- **iCloud copies files in this repo**, even inside `.git`. Fix: turn off iCloud Desktop & Documents
+  sync, or move the whole `~/Documents/Flywheel` tree (not only `gitwork`: CLAUDE.md discovery and
+  the `../../conventions` import depend on it) and copy the Claude memory folder to the new path key.
 - **Before any work:** `git fetch origin && git status -sb`.
-- **Toolchain:** pnpm comes from corepack (`corepack enable` was run on this machine). Run checks
-  from the repo root: `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm smoke`.
+- **Toolchain:** pnpm comes from corepack. Run checks from the repo root:
+  `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm smoke`.
 
 ## In Progress
 
-None. Next step: Phase 4 — Docs on web.
+Track B + C + D (speed, keyboard, layout) — next after PR #7.
 
 ## Completed
 
@@ -24,6 +29,7 @@ None. Next step: Phase 4 — Docs on web.
 | Phase 1 — Identity | 2026-10-15 | [features/identity.md](features/identity.md) |
 | Phase 2 — GitHub App (PR #3) | 2026-10-15 | [features/github-app.md](features/github-app.md) |
 | Phase 3 — Tasks on web (PR #4) | 2026-10-16 | [features/tasks.md](features/tasks.md) |
+| Track A — Self-host release (PR #7, in review; GitHub half of the exit check waits on the live check) | 2026-11-10 | [features/self-host.md](features/self-host.md) |
 
 ## Backlog
 

@@ -7,5 +7,5 @@ import { getDatabase } from "@/server/runtime";
 export async function GET() {
   const { driver, db } = getDatabase();
   const [row] = await db.select({ settings: count() }).from(instanceSettings);
-  return Response.json({ ok: true, app: APP_NAME, driver, settings: row?.settings ?? 0 });
+  return Response.json({ ok: true, app: APP_NAME, version: process.env.GITWORK_VERSION || "dev", driver, settings: row?.settings ?? 0 });
 }

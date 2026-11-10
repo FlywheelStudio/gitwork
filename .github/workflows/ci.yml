@@ -26,3 +26,27 @@ jobs:
       - run: pnpm test:e2e
       # Builds and serves both runtimes; fails if libsql reaches the Worker bundle.
       - run: pnpm smoke
+
+  # The Phase 7 exit check, minus GitHub: build the Docker image, start it on an empty volume, and
+  # sign in as the instance admin.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t gitwork:ci .
+      - name: Start a fresh instance
+        run: |
+          mkdir -p /tmp/gw && chmod 777 /tmp/gw
+          docker run -d --name gw -p 3000:3000 -v /tmp/gw:/data \
+            -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" -e BETTER_AUTH_URL=http://localhost:3000 \
+            -e INSTANCE_ADMIN_EMAILS=admin@example.com -e EMAIL_TRANSPORT=outbox -e EMAIL_OUTBOX_PATH=/data/outbox.jsonl \
+            gitwork:ci
+      - run: ./scripts/selfhost-check.sh http://localhost:3000 /tmp/gw/outbox.jsonl admin@example.com
+      - name: Online backup
+        run: docker exec gw node backup.mjs /data/backup.sqlite && test -s /tmp/gw/backup.sqlite
+      - name: Refuses to start without configuration
+        run: |
+          if docker run --rm gitwork:ci; then echo "FAIL: started without configuration"; exit 1; fi
+      - if: always()
+        run: docker logs gw || true

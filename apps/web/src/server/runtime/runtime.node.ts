@@ -1,7 +1,8 @@
 import "server-only";
 import type { Database } from "@gitwork/db";
 import { openSqlite } from "@gitwork/db/node";
-import { type EmailSender, consoleSender, unconfiguredSender } from "@gitwork/server";
+import { migrate } from "drizzle-orm/libsql/migrator";
+import { type EmailSender, type RuntimeName, checkConfig, consoleSender, unconfiguredSender } from "@gitwork/server";
 import { outboxSender, smtpSender } from "@gitwork/server/email-node";
 import { runScheduledReconcile } from "@gitwork/server/sync";
 
@@ -48,4 +49,28 @@ export function startScheduler(): void {
     });
   scheduler.__gitworkScheduler = setInterval(tick, RECONCILE_EVERY_MS);
   setTimeout(tick, 30_000);
+}
+
+export const RUNTIME: RuntimeName = "node";
+
+/**
+ * Runs once before the server takes requests (src/instrumentation.ts). Production only:
+ * 1. Logs every configuration problem by variable name. With GITWORK_FAIL_ON_CONFIG_ERROR=1 (the
+ *    Docker image sets it) an error stops the process, so a bad deploy fails loudly at boot.
+ * 2. With GITWORK_MIGRATIONS_DIR set (the Docker image sets it), applies pending migrations.
+ */
+export async function bootNode(): Promise<void> {
+  if (process.env.NODE_ENV !== "production") return;
+  const issues = checkConfig(process.env, RUNTIME);
+  for (const issue of issues) console[issue.level === "error" ? "error" : "warn"](`[config] ${issue.level}: ${issue.key}: ${issue.message}`);
+  if (process.env.GITWORK_FAIL_ON_CONFIG_ERROR === "1" && issues.some((i) => i.level === "error")) {
+    console.error("[config] Fix the errors above, then restart. See .env.example.");
+    process.exit(1);
+  }
+  const dir = process.env.GITWORK_MIGRATIONS_DIR;
+  if (dir) {
+    // The runtime object is a LibSQLDatabase; `Db` hides only `transaction`.
+    await migrate(getDatabase().db as unknown as Parameters<typeof migrate>[0], { migrationsFolder: dir });
+    console.info(`[db] migrations applied from ${dir}`);
+  }
 }
