@@ -9,7 +9,9 @@ Last updated: 2026-11-10
 - Open PRs: #5 (decisions 020–022, iCloud copies removed), #6 (roadmap), #7 (self-host, Track A).
 - **Live GitHub check: still not done.** The session's permission rules block a `cloudflared`
   tunnel. The owner must start the tunnel or allow it. See Chores.
-- **Move the repo out of `~/Documents`.** iCloud copies files, including inside `.git`.
+- **iCloud copies files in this repo**, even inside `.git`. Fix: turn off iCloud Desktop & Documents
+  sync, or move the whole `~/Documents/Flywheel` tree (not only `gitwork`: CLAUDE.md discovery and
+  the `../../conventions` import depend on it) and copy the Claude memory folder to the new path key.
 - **Before any work:** `git fetch origin && git status -sb`.
 - **Toolchain:** pnpm comes from corepack. Run checks from the repo root:
   `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm smoke`.
@@ -27,7 +29,7 @@ Track B + C + D (speed, keyboard, layout) — next after PR #7.
 | Phase 1 — Identity | 2026-10-15 | [features/identity.md](features/identity.md) |
 | Phase 2 — GitHub App (PR #3) | 2026-10-15 | [features/github-app.md](features/github-app.md) |
 | Phase 3 — Tasks on web (PR #4) | 2026-10-16 | [features/tasks.md](features/tasks.md) |
-| Track A — Self-host release (PR #7) | 2026-11-10 | [features/self-host.md](features/self-host.md) |
+| Track A — Self-host release (PR #7, in review; GitHub half of the exit check waits on the live check) | 2026-11-10 | [features/self-host.md](features/self-host.md) |
 
 ## Backlog
 

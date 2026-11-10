@@ -55,7 +55,8 @@ no `DATABASE_URL`, an unknown `GITWORK_SCHEDULER`.
 ## Gotchas
 - **iCloud Drive copies files** (`name 2.ext`) in a repo under `~/Documents`, including inside
   `.next` and `.git`. A copied migration runs twice on D1. `scripts/check-repo.sh` (PR #5) guards
-  tracked files; keep the repo out of iCloud.
+  tracked files. Turn off iCloud Desktop & Documents sync, or move the whole `~/Documents/Flywheel`
+  tree (moving only this repo breaks CLAUDE.md discovery and the `../../conventions` import).
 - **Standalone hides `@libsql/client`** under `node_modules/.pnpm/`. `backup.mjs` searches for it;
   a one-line `require('@libsql/client')` fails.
 - **E2E outbox race:** a second sign-in for the same email can read the first code. `signInCode(email,
