@@ -118,6 +118,8 @@ let workspaceId = "";
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async ({ browser }) => {
+  // Seeding plus sign-in can take longer than the default 30 s on a slow CI machine.
+  test.setTimeout(120_000);
   const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const owner = await ctx.newPage();
   await signIn(owner, "keys-owner@example.com");
