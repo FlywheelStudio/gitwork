@@ -1,6 +1,6 @@
 # Roadmap — self-host release and Linear-class speed
 
-Date: 2026-11-10 · Status: **Draft, waiting on owner decisions** (see "Questions for the owner").
+Date: 2026-11-10 · Status: **Accepted** by the owner, 2026-11-10. Answers Q0–Q10 are all "yes"; records 023–032.
 
 Two goals from the owner:
 
@@ -29,7 +29,7 @@ Phase 5 (Activity, inbox) merges into Track E, tier 1.
 
 ## Step 0 — iCloud copies in PR #5 (blocker)
 
-Commit `0943411` on `feature/live-check` (PR #5) adds 22 files named `<name> 2.<ext>`:
+Commit `0943411` on `feature/live-check` (PR #5) adds 24 files named `<name> 2.<ext>`:
 `package 2.json`, `pnpm-lock 2.yaml`, `apps/web/worker 2.ts`, and others. They are older copies, with
 no content that the real files lack.
 
@@ -252,12 +252,14 @@ SAML and SCIM, third-party integrations (Slack, Zendesk, Intercom, Sentry, Figma
 already holds the data), Linear's AI agent and coding agent, an MCP server (needs personal API
 tokens, already "Later"), recurring issues, insights dashboards, mobile apps.
 
-## Questions for the owner
+## Questions for the owner (answered: all yes)
+
+Q0 is done on PR #5. Q1–Q10 are decisions 023–032; Q5 amends 021.
 
 The owner answers these by number. Each has a recommended answer; "yes" accepts it. Decision records
 follow the answers.
 
-Q0. Remove the 22 iCloud copies on `feature/live-check` and move the repo out of `~/Documents`.
+Q0. Remove the 24 iCloud copies on `feature/live-check` and move the repo out of `~/Documents`.
 Q1. "Host open source" means a self-host release (Docker, Cloudflare button, guide). Public boards
    for open-source maintainers (no sign-in, personal-account repos) is a separate, later item.
 Q2. License `AGPL-3.0-only`, with a DCO sign-off for contributions, not a CLA. Trade-off: without a
