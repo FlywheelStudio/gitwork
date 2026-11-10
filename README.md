@@ -1,42 +1,61 @@
 # Gitwork
 
-Project management on top of GitHub. GitHub stays the source of truth for tasks and docs; Gitwork
-gives your clients and stakeholders a fast, permissioned view of it — list, kanban, and timeline
-views of a GitHub Projects v2 board, plus editable markdown from each repo's `docs/` folder.
+Project management on top of GitHub. GitHub stays the source of truth for tasks and docs. Gitwork
+gives your team, clients, and stakeholders a fast, permissioned view of it: list, kanban, and
+timeline views of a GitHub Projects v2 board, with edits that go back to GitHub.
 
-> **Status:** early development (Phase 0 of 7). Not usable yet. See [docs/STATE.md](docs/STATE.md).
+People without a GitHub account can take part. Four roles (Owner, Admin, Member, Read Only) decide
+what each person sees and changes. Read Only users never receive hidden items.
 
-## Run it locally
+> **Status: pre-release.** Tasks work end to end against a simulated GitHub. Docs editing, the
+> activity inbox, and the Mac app are still in progress. See [docs/STATE.md](docs/STATE.md) and the
+> [roadmap](docs/roadmap.md).
 
-Requires Node 22+ and corepack (ships with Node 22–24).
+## Self-host
+
+Gitwork is open source under the [AGPL-3.0](LICENSE). Run it on any Docker host or on Cloudflare
+Workers.
 
 ```bash
-corepack enable          # provides the pinned pnpm
+git clone https://github.com/FlywheelStudio/gitwork && cd gitwork
+cp .env.example .env        # fill in the URL, secret, admin email, and SMTP
+docker compose up -d
+```
+
+The full guide, with Cloudflare, backups, and upgrades: [docs/self-host/](docs/self-host/README.md).
+
+## Develop
+
+Requires Node 22+ and corepack.
+
+```bash
+corepack enable
 pnpm install
 pnpm dev                 # Node + SQLite file at apps/web/.data/ → http://localhost:3000
 pnpm preview             # Cloudflare Workers (workerd) + local D1 → http://localhost:8787
 ```
 
-## Checks
+Checks, as CI runs them:
 
 ```bash
 pnpm lint && pnpm typecheck
-pnpm test                # unit tests; the DB suite runs on both libsql and D1
+pnpm test                # unit and integration; the DB suite runs on both libsql and D1
 pnpm test:e2e            # Playwright against the Node runtime
 pnpm smoke               # builds and serves both runtimes end to end
 ```
 
-## Self-hosting
-
-Gitwork runs on Cloudflare Workers (D1) or any Node host (SQLite file). Deploy guides arrive in
-Phase 7. For Cloudflare today: `wrangler d1 create gitwork`, put the ID in
-`apps/web/wrangler.jsonc`, then `wrangler d1 migrations apply DB --remote` and
-`pnpm --filter @gitwork/web exec opennextjs-cloudflare deploy`.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request. Every commit needs a DCO sign-off
+(`git commit -s`).
 
 ## Docs
 
 Start at [docs/INDEX.md](docs/INDEX.md). The product spec is [docs/spec.md](docs/spec.md).
 
+## Security
+
+Report vulnerabilities privately. See [SECURITY.md](SECURITY.md).
+
 ## License
 
-[AGPL-3.0](LICENSE).
+[AGPL-3.0-only](LICENSE). If you run a modified Gitwork for other people, you must offer them your
+source code.

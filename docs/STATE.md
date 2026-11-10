@@ -1,20 +1,22 @@
 # State
 
-Last updated: 2026-10-15
+Last updated: 2026-11-10
 
 ## Resume here
 
-- **Phase 3 (tasks on web) is in review** on branch `feature/tasks` (PR pending owner merge).
-  PRs #1–#3 (Phases 0–2) are merged.
-- **Live GitHub check: still not done.** It needs a person (or a connected browser) to click
-  "Create GitHub App" on github.com, and a public webhook URL. See Chores.
+- Plan: `docs/roadmap.md` (PR #6), accepted 2026-11-10 with decisions 023–032. Order: live GitHub
+  check → self-host v0.1 → speed / keyboard / layout → Linear parity tier 1 → Phase 4 Docs.
+- Open PRs: #5 (decisions 020–022, iCloud copies removed), #6 (roadmap), #7 (self-host, Track A).
+- **Live GitHub check: still not done.** The session's permission rules block a `cloudflared`
+  tunnel. The owner must start the tunnel or allow it. See Chores.
+- **Move the repo out of `~/Documents`.** iCloud copies files, including inside `.git`.
 - **Before any work:** `git fetch origin && git status -sb`.
-- **Toolchain:** pnpm comes from corepack (`corepack enable` was run on this machine). Run checks
-  from the repo root: `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm smoke`.
+- **Toolchain:** pnpm comes from corepack. Run checks from the repo root:
+  `pnpm lint && pnpm typecheck && pnpm test && pnpm test:e2e && pnpm smoke`.
 
 ## In Progress
 
-None. Next step: Phase 4 — Docs on web.
+Track B + C + D (speed, keyboard, layout) — next after PR #7.
 
 ## Completed
 
@@ -24,7 +26,8 @@ None. Next step: Phase 4 — Docs on web.
 | Phase 0 — Scaffold | 2026-10-15 | [features/scaffold.md](features/scaffold.md) |
 | Phase 1 — Identity | 2026-10-15 | [features/identity.md](features/identity.md) |
 | Phase 2 — GitHub App (PR #3) | 2026-10-15 | [features/github-app.md](features/github-app.md) |
-| Phase 3 — Tasks on web (in review) | 2026-10-15 | [features/tasks.md](features/tasks.md) |
+| Phase 3 — Tasks on web (PR #4) | 2026-10-16 | [features/tasks.md](features/tasks.md) |
+| Track A — Self-host release (PR #7) | 2026-11-10 | [features/self-host.md](features/self-host.md) |
 
 ## Backlog
 

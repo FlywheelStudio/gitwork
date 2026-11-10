@@ -39,3 +39,5 @@
 | [features/identity.md](features/identity.md) | Email-code sign-in, accounts, workspaces, roles, invites, GitHub link, `/api/v1`. |
 | [features/github-app.md](features/github-app.md) | Setup wizard, GitHub App, installations, webhooks, cache, reconcile. |
 | [features/tasks.md](features/tasks.md) | Board and repo link, list / kanban / timeline, task edits, visibility filter, audit log. |
+| [features/self-host.md](features/self-host.md) | Docker image, config check, /setup/health, backup, release pipeline, DCO. |
+| [self-host/README.md](self-host/README.md) | Self-host guide: Docker, Cloudflare, upgrades, backups, troubleshooting. |
