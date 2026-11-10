@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest a change or a new feature.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What do you propose?
+  - type: textarea
+    id: github
+    attributes:
+      label: Where does the data live in GitHub?
+      description: GitHub is the source of truth. Name the GitHub field, label, or file, if you know it.

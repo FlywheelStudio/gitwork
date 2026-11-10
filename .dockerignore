@@ -1,0 +1,17 @@
+**/node_modules
+**/.next
+**/.open-next
+**/.wrangler
+**/.data
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+**/* [0-9]*
+.git
+.env*
+!.env.example
+**/.dev.vars*
+apps/mac
+CLAUDE.local.md
+.claude
+.agents

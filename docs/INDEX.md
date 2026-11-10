@@ -4,6 +4,7 @@
 |---|---|
 | [STATE.md](STATE.md) | Status board: in progress, completed, backlog. |
 | [spec.md](spec.md) | v1 product spec: glossary, roles, write path, architecture, build phases, risks. |
+| [roadmap.md](roadmap.md) | Plan: self-host release, Linear-class speed, keyboard, UI, parity matrix. Accepted 2026-11-10. |
 
 ## Decisions
 
@@ -30,6 +31,17 @@
 | 019 | [Instance admins and email from the environment; wizard creates the GitHub App](decisions/019-instance-setup.md) |
 | 020 | [Linking a workspace is checked with the user's own GitHub token](decisions/020-workspace-link-boundary.md) |
 | 021 | [Task writes: user token first, App on refusal, synchronous](decisions/021-task-writes.md) |
+| 022 | [Cloudflare hosting requires the Workers Paid plan](decisions/022-cloudflare-paid-plan.md) |
+| 023 | [Self-host release scope](decisions/023-self-host-release.md) |
+| 024 | [AGPL-3.0-only confirmed; contributions under a DCO](decisions/024-license-dco.md) |
+| 025 | [Self-host v0.1 ships with tasks only, before docs](decisions/025-release-order.md) |
+| 026 | [Client store with polled deltas](decisions/026-client-store-sync.md) |
+| 027 | [Optimistic edits; bulk edits through the job queue](decisions/027-optimistic-edits.md) |
+| 028 | [One keymap; Linear's default keys](decisions/028-keymap.md) |
+| 029 | [A Linear project is a board field plus a doc](decisions/029-projects.md) |
+| 030 | [Assignees are GitHub users only](decisions/030-assignees.md) |
+| 031 | [Linear features out of scope for v1](decisions/031-v1-scope.md) |
+| 032 | [Triage is linked-repo issues not on the board](decisions/032-triage.md) |
 | 033 | [Sync by snapshot ETag, not a change table; no IndexedDB yet](decisions/033-snapshot-etag-sync.md) |
 
 ## Features
@@ -40,4 +52,6 @@
 | [features/identity.md](features/identity.md) | Email-code sign-in, accounts, workspaces, roles, invites, GitHub link, `/api/v1`. |
 | [features/github-app.md](features/github-app.md) | Setup wizard, GitHub App, installations, webhooks, cache, reconcile. |
 | [features/tasks.md](features/tasks.md) | Board and repo link, list / kanban / timeline, task edits, visibility filter, audit log. |
+| [features/self-host.md](features/self-host.md) | Docker image, config check, /setup/health, backup, release pipeline, DCO. |
+| [self-host/README.md](self-host/README.md) | Self-host guide: Docker, Cloudflare, upgrades, backups, troubleshooting. |
 | [features/speed.md](features/speed.md) | Client store, /sync with ETag, optimistic edits, side panel, measured budgets. |

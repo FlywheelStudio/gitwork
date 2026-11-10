@@ -1,0 +1,13 @@
+name: DCO
+
+# Contributions are accepted under the Developer Certificate of Origin (decision 024).
+on: pull_request
+
+jobs:
+  signoff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: ./scripts/check-dco.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
