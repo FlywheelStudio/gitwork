@@ -1,7 +1,7 @@
 import "server-only";
 import type { Database } from "@gitwork/db";
 import { openD1 } from "@gitwork/db/d1";
-import { type EmailSender, cloudflareSender, parseFrom, unconfiguredSender } from "@gitwork/server";
+import { type EmailSender, type RuntimeName, cloudflareSender, parseFrom, unconfiguredSender } from "@gitwork/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 /** Cloudflare Workers: the D1 binding named DB. Bindings are per request, so no caching here. */
@@ -27,3 +27,8 @@ export function getEmailSender(): EmailSender {
 
 /** Workers: the Cron Trigger in worker.ts runs reconcile. Nothing to start here. */
 export function startScheduler(): void {}
+
+export const RUNTIME: RuntimeName = "workerd";
+
+/** Workers: migrations run with `wrangler d1 migrations apply`; nothing runs at boot. */
+export async function bootNode(): Promise<void> {}

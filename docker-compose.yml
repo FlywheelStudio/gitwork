@@ -1,0 +1,35 @@
+# Gitwork with a SQLite file on a named volume.
+#   1. cp .env.example .env and fill it in (BETTER_AUTH_URL = your public https URL).
+#   2. docker compose up -d                     # Gitwork on port 3000, behind your own proxy
+#      docker compose --profile caddy up -d     # or let Caddy get a TLS certificate (set GITWORK_DOMAIN)
+# Full guide: docs/self-host/README.md
+services:
+  gitwork:
+    image: ghcr.io/flywheelstudio/gitwork:${GITWORK_TAG:-latest}
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: file:/data/gitwork.sqlite
+    volumes:
+      - gitwork-data:/data
+    ports:
+      - "${GITWORK_PORT:-3000}:3000"
+
+  caddy:
+    image: caddy:2
+    profiles: [caddy]
+    restart: unless-stopped
+    depends_on: [gitwork]
+    environment:
+      GITWORK_DOMAIN: ${GITWORK_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  gitwork-data:
+  caddy-data:
