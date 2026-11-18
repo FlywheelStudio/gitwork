@@ -8,7 +8,6 @@ import { authClient } from "@/lib/auth-client";
 export function SignInForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = safeNext(params.get("next"));
   const [email, setEmail] = useState(params.get("email") ?? "");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
@@ -32,7 +31,8 @@ export function SignInForm() {
     const { error } = await authClient.signIn.emailOtp({ email, otp: code.trim() });
     setBusy(false);
     if (error) return setError(error.message ?? "That code did not work.");
-    router.push(next);
+    // safeNext reads window, so call it here (browser only), never during the server render.
+    router.push(safeNext(params.get("next")));
     router.refresh();
   }
 

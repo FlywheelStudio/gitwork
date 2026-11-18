@@ -13,7 +13,20 @@ const runtime =
 // from the repo root so the workspace packages come along.
 const standalone = process.env.GITWORK_STANDALONE === "1";
 
+// `next dev` blocks its dev resources (HMR, client chunks) for any host but localhost. A tunnel for
+// GitHub webhooks (features/github-app.md) serves the app at BETTER_AUTH_URL, so allow that host.
+// Dev only: production builds ignore allowedDevOrigins.
+function authHost(): string | undefined {
+  try {
+    return new URL(process.env.BETTER_AUTH_URL ?? "").hostname;
+  } catch {
+    return undefined;
+  }
+}
+const devHost = authHost();
+
 const nextConfig: NextConfig = {
+  ...(devHost && devHost !== "localhost" && { allowedDevOrigins: [devHost] }),
   ...(standalone && { output: "standalone", outputFileTracingRoot: fileURLToPath(new URL("../..", import.meta.url)) }),
   // cacheComponents stays off: under workerd its setTimeout dependency hangs every request.
   reactCompiler: true,
