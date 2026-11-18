@@ -14,7 +14,11 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   return data as T;
 }
 
-/** Only same-site paths, so `?next=` cannot redirect off-site. */
+/**
+ * Only same-site paths, so `?next=` cannot redirect off-site. It returns a path, so any origin gives
+ * the same answer: a fixed one stands in during the server render, where `window` does not exist.
+ */
 export function safeNext(value: string | null): string {
-  return safeRedirectPath(value, window.location.origin);
+  const origin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  return safeRedirectPath(value, origin);
 }

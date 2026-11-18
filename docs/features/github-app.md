@@ -105,6 +105,8 @@ them and prunes the ones no workspace uses (features/tasks.md).
 - **GitHub must reach the webhook URL.** For local development use a tunnel (e.g.
   `cloudflared tunnel --url http://localhost:3000`) and set `BETTER_AUTH_URL` to it *before*
   creating the App: the manifest bakes in the URLs.
+  Restart `pnpm dev` after you set it: `next.config.ts` adds that host to `allowedDevOrigins`,
+  or `next dev` blocks its scripts when you open the app through the tunnel.
 - **Rotating `BETTER_AUTH_SECRET`** makes the stored App credentials and linked GitHub tokens
   unreadable. Sign-in keeps working (`createRequestDeps()` treats GitHub as not set up and sets
   `githubError`); `/setup` shows the error and offers "Forget the stored App and start over".
