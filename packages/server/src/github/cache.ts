@@ -5,7 +5,19 @@
  *   - "fresh": data just fetched from GitHub also applies on an equal timestamp.
  *   - Tombstoned (deleted) rows never come back.
  */
-import { type Db, type ProjectFieldValue, ghIssueLinks, ghIssues, ghProjectFields, ghProjectItems, ghProjects, ghRepos } from "@gitwork/db";
+import {
+  type Db,
+  type ProjectFieldValue,
+  ghDocBlobs,
+  ghDocFiles,
+  ghDocRoots,
+  ghIssueLinks,
+  ghIssues,
+  ghProjectFields,
+  ghProjectItems,
+  ghProjects,
+  ghRepos,
+} from "@gitwork/db";
 import { type SQL, and, eq, getTableColumns, lt, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { IssueLinksNode } from "./queries";
@@ -319,4 +331,43 @@ export function itemIssueLinks(db: Db, node: ProjectItemNode, now: Date) {
   const content = node.content;
   if (node.type !== "ISSUE" || !content?.id || content.parent === undefined) return [];
   return [upsertIssueLinks(db, { id: content.id, parent: content.parent, blockedBy: content.blockedBy }, now)];
+}
+
+// ---- Docs (decision 035) ----------------------------------------------------------------------
+
+export type DocRootRow = typeof ghDocRoots.$inferInsert;
+
+/** A docs folder's head and tree. Last write wins: the next sync repairs a stale one. */
+export function upsertDocRoot(db: Db, row: DocRootRow) {
+  return db
+    .insert(ghDocRoots)
+    .values(row)
+    .onConflictDoUpdate({ target: ghDocRoots.id, set: { headOid: row.headOid, treeOid: row.treeOid, truncated: row.truncated, syncedAt: row.syncedAt } });
+}
+
+/** The head moved but the folder did not change. */
+export function touchDocRoot(db: Db, rootId: string, headOid: string | null, at: Date) {
+  return db.update(ghDocRoots).set({ headOid, syncedAt: at }).where(eq(ghDocRoots.id, rootId));
+}
+
+/** At most 20 rows: D1 binds at most 100 parameters per statement. */
+export function upsertDocFiles(db: Db, rootId: string, files: { path: string; blobSha: string; size: number }[]) {
+  return db
+    .insert(ghDocFiles)
+    .values(files.map((f) => ({ rootId, ...f })))
+    .onConflictDoUpdate({ target: [ghDocFiles.rootId, ghDocFiles.path], set: excludedSet(ghDocFiles, ["rootId", "path"]) });
+}
+
+export function deleteDocFiles(db: Db, rootId: string, paths: string[]) {
+  return db.delete(ghDocFiles).where(and(eq(ghDocFiles.rootId, rootId), inJsonList(ghDocFiles.path, paths)));
+}
+
+/** Text by blob sha never changes: an existing row is kept. */
+export function putDocBlob(db: Db, row: typeof ghDocBlobs.$inferInsert) {
+  return db.insert(ghDocBlobs).values(row).onConflictDoNothing();
+}
+
+/** Text rows no cached file points at any more. */
+export function pruneDocBlobs(db: Db) {
+  return db.delete(ghDocBlobs).where(sql`${ghDocBlobs.sha} NOT IN (SELECT ${ghDocFiles.blobSha} FROM ${ghDocFiles})`);
 }

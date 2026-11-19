@@ -12,6 +12,7 @@
  */
 import { type Db, ghRepos, ghSyncTargets } from "@gitwork/db";
 import { acquireLease, releaseLease } from "../leases";
+import { allDocRoots, pruneDocCache, syncDocRoots } from "../services/docs";
 import { and, asc, eq, sql } from "drizzle-orm";
 import {
   type IssueJson,
@@ -95,8 +96,12 @@ export async function reconcile(options: ReconcileOptions): Promise<ReconcileRes
       .limit(options.maxTargets ?? 3);
     for (const target of targets) {
       try {
-        if (target.kind === "repo") await syncRepo(options, target, now);
-        else await syncProject(options, target, now);
+        if (target.kind === "repo") {
+          await syncRepo(options, target, now);
+          // The repo's docs folders: one GraphQL call each, plus a tree listing when one changed.
+          const docs = await syncDocRoots(options, await allDocRoots(db, target.nodeId), now());
+          for (const f of docs.failed) result.failed.push({ target: `docs:${f.root}`, error: f.error });
+        } else await syncProject(options, target, now);
         result.synced.push(`${target.kind}:${target.locator}`);
       } catch (error) {
         if (error instanceof GitHubRateLimitError) {
@@ -106,6 +111,7 @@ export async function reconcile(options: ReconcileOptions): Promise<ReconcileRes
         result.failed.push({ target: `${target.kind}:${target.locator}`, error: (error as Error).message });
       }
     }
+    await pruneDocCache(db);
   } finally {
     await releaseLease(db, "reconcile", holder);
   }

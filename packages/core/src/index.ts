@@ -3,3 +3,4 @@ export * from "./permissions";
 export { safeRedirectPath } from "./redirect";
 export * from "./visibility";
 export * from "./keymap";
+export * from "./docs";

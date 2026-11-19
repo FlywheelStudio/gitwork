@@ -210,22 +210,32 @@ export function FieldMappingPanel(props: { workspaceId: string; fields: { id: st
   );
 }
 
-export function VisibilityPanel(props: { workspaceId: string; hideLabel: string; showDraftsToReadOnly: boolean }) {
+export function VisibilityPanel(props: { workspaceId: string; hideLabel: string; hideFolder: string; showDraftsToReadOnly: boolean }) {
   const { error, busy, run } = useRun();
   const [hideLabel, setHideLabel] = useState(props.hideLabel);
+  const [hideFolder, setHideFolder] = useState(props.hideFolder);
   const [drafts, setDrafts] = useState(props.showDraftsToReadOnly);
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        void run(() => api("PATCH", `/workspaces/${props.workspaceId}/settings`, { hideLabel: hideLabel || null, showDraftsToReadOnly: drafts }));
+        void run(() =>
+          api("PATCH", `/workspaces/${props.workspaceId}/settings`, { hideLabel: hideLabel || null, hideFolder: hideFolder || null, showDraftsToReadOnly: drafts }),
+        );
       }}
     >
       <div>
         <Label htmlFor="hide-label">Hide issues with this label</Label>
         <Input id="hide-label" value={hideLabel} placeholder="e.g. internal" maxLength={50} onChange={(e) => setHideLabel(e.target.value)} />
         <p className="mt-1 text-xs text-muted-foreground">Read Only members never see these issues. Empty hides nothing.</p>
+      </div>
+      <div>
+        <Label htmlFor="hide-folder">Hide docs in this folder</Label>
+        <Input id="hide-folder" value={hideFolder} placeholder="e.g. internal" maxLength={200} onChange={(e) => setHideFolder(e.target.value)} />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Inside each repo&apos;s docs folder: &ldquo;internal&rdquo; hides docs/internal/. Read Only members never see these files. Empty hides nothing.
+        </p>
       </div>
       <div className="flex items-center gap-2 text-sm">
         <Checkbox id="show-drafts" checked={drafts} onCheckedChange={(on) => setDrafts(on === true)} />
@@ -235,6 +245,76 @@ export function VisibilityPanel(props: { workspaceId: string; hideLabel: string;
       <Button type="submit" disabled={busy}>
         Save
       </Button>
+    </form>
+  );
+}
+
+/** Review mode (decision 008): App doc writes open a pull request instead of a commit. */
+export function DocReviewPanel(props: { workspaceId: string; reviewBotDocEdits: boolean }) {
+  const { error, busy, run } = useRun();
+  const [on, setOn] = useState(props.reviewBotDocEdits);
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void run(() => api("PATCH", `/workspaces/${props.workspaceId}/settings`, { reviewBotDocEdits: on }));
+      }}
+    >
+      <div className="flex items-center gap-2 text-sm">
+        <Checkbox id="review-docs" checked={on} onCheckedChange={(v) => setOn(v === true)} />
+        <label htmlFor="review-docs">Require review for doc edits from people without GitHub</label>
+      </div>
+      <p className="text-xs text-muted-foreground">Their saves open a pull request instead of committing. People who linked GitHub still commit as themselves.</p>
+      <ErrorText>{error}</ErrorText>
+      <Button type="submit" disabled={busy}>
+        Save review setting
+      </Button>
+    </form>
+  );
+}
+
+/** Each repo's docs folder and branch (decision 011). */
+export function DocFoldersPanel(props: { workspaceId: string; repos: { nodeId: string; fullName: string; path: string; branch: string; defaultBranch: boolean }[] }) {
+  return (
+    <div className="space-y-4">
+      {props.repos.map((r) => (
+        <DocFolderRow key={r.nodeId} workspaceId={props.workspaceId} repo={r} />
+      ))}
+    </div>
+  );
+}
+
+function DocFolderRow(props: { workspaceId: string; repo: { nodeId: string; fullName: string; path: string; branch: string; defaultBranch: boolean } }) {
+  const { error, busy, run } = useRun();
+  const [path, setPath] = useState(props.repo.path);
+  const [branch, setBranch] = useState(props.repo.defaultBranch ? "" : props.repo.branch);
+  const id = props.repo.nodeId.replace(/[^\w-]/g, "_");
+  return (
+    <form
+      className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void run(() =>
+          api("PATCH", `/workspaces/${props.workspaceId}/github/repos/${encodeURIComponent(props.repo.nodeId)}/docs`, { docsPath: path, docsBranch: branch || null }),
+        );
+      }}
+    >
+      <p className="truncate text-sm font-medium sm:pb-2">{props.repo.fullName}</p>
+      <div>
+        <Label htmlFor={`docs-path-${id}`}>Docs folder</Label>
+        <Input id={`docs-path-${id}`} value={path} onChange={(e) => setPath(e.target.value)} placeholder="docs" />
+      </div>
+      <div>
+        <Label htmlFor={`docs-branch-${id}`}>Branch</Label>
+        <Input id={`docs-branch-${id}`} value={branch} onChange={(e) => setBranch(e.target.value)} placeholder={props.repo.defaultBranch ? `${props.repo.branch} (default)` : "default branch"} />
+      </div>
+      <Button type="submit" disabled={busy} aria-label={`Save docs folder for ${props.repo.fullName}`}>
+        Save
+      </Button>
+      <div className="sm:col-span-4">
+        <ErrorText>{error}</ErrorText>
+      </div>
     </form>
   );
 }

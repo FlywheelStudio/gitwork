@@ -55,3 +55,28 @@ export function isTaskVisible(item: ItemFacts, ctx: VisibilityContext): boolean 
   if (!ctx.canViewHidden && hasHideLabel(issue.labels, ctx.hideLabel)) return false;
   return true;
 }
+
+/** What the doc filter needs (decisions 011, 012). */
+export interface DocVisibilityContext {
+  /** `items.view_hidden`: may see files under the hide folder. */
+  canViewHidden: boolean;
+  /** The workspace's hide folder, relative to each repo's docs folder, or null. */
+  hideFolder: string | null;
+}
+
+export function docVisibilityContext(actor: Actor, settings: PermissionSettings, hideFolder: string | null): DocVisibilityContext {
+  const folder = hideFolder?.trim().replace(/^\/+|\/+$/g, "") || null;
+  return { canViewHidden: can(actor, "items.view_hidden", settings), hideFolder: folder };
+}
+
+/**
+ * Whether a viewer may receive a file. Fail-closed: the path must sit under the docs folder, and
+ * a hidden folder is matched without case, so "Internal/" and "internal/" both hide.
+ */
+export function isDocVisible(path: string, root: string, ctx: DocVisibilityContext): boolean {
+  if (!path.startsWith(`${root}/`)) return false;
+  if (ctx.canViewHidden || !ctx.hideFolder) return true;
+  const rel = path.slice(root.length + 1).toLowerCase();
+  const hidden = ctx.hideFolder.toLowerCase();
+  return rel !== hidden && !rel.startsWith(`${hidden}/`);
+}

@@ -1,0 +1,54 @@
+{
+  "about": "Shared round-trip fixtures for every Gitwork doc editor (decision 011). Format: fixtures/docs/README.md.",
+  "cases": [
+    { "name": "lf-basic", "input": "# Title\n\nHello *world*.\n", "separator": "\n",
+      "ops": [{ "find": "Hello", "replace": "Hi" }], "expected": "# Title\n\nHi *world*.\n" },
+    { "name": "crlf", "input": "# Notes\r\n\r\nLine one\r\nLine two\r\n", "separator": "\r\n",
+      "ops": [{ "find": "two", "replace": "2" }], "expected": "# Notes\r\n\r\nLine one\r\nLine 2\r\n" },
+    { "name": "crlf-new-line", "input": "a\r\nb\r\n", "separator": "\r\n",
+      "ops": [{ "find": "a\r\n", "replace": "a\r\nnew\r\n" }], "expected": "a\r\nnew\r\nb\r\n" },
+    { "name": "mixed-endings", "input": "a\r\nb\nc\r\n", "separator": "\n",
+      "ops": [{ "find": "b", "replace": "B" }], "expected": "a\r\nB\nc\r\n" },
+    { "name": "lone-cr", "input": "a\rb\nc\n", "separator": "\n",
+      "ops": [{ "find": "c", "replace": "d" }], "expected": "a\rb\nd\n" },
+    { "name": "bom", "input": "﻿# Title\nBody\n", "separator": "\n",
+      "ops": [{ "find": "Body", "replace": "Text" }], "expected": "﻿# Title\nText\n" },
+    { "name": "no-trailing-newline", "input": "first\nlast", "separator": "\n",
+      "ops": [{ "find": "last", "replace": "final" }], "expected": "first\nfinal" },
+    { "name": "trailing-whitespace", "input": "keep  \n\tedit me \t\nkeep\t\n", "separator": "\n",
+      "ops": [{ "find": "edit", "replace": "change" }], "expected": "keep  \n\tchange me \t\nkeep\t\n" },
+    { "name": "non-ascii", "input": "Café — naïve 😀\n日本語のテキスト\n", "separator": "\n",
+      "ops": [{ "find": "日本語", "replace": "中文" }], "expected": "Café — naïve 😀\n中文のテキスト\n" },
+    { "name": "empty", "input": "", "separator": "\n", "ops": [], "expected": "" },
+    { "name": "invalid-utf8", "inputBase64": "IyD/Cg==", "editable": false },
+    { "name": "frontmatter-set", "input": "---\ntitle: Old title\ntags: [a, b]\nowner: \"Jane\"\n---\n\nBody\n", "separator": "\n",
+      "ops": [
+        { "frontmatter": "set", "key": "title", "value": "New title" },
+        { "frontmatter": "set", "key": "owner", "value": "Jane Doe" },
+        { "frontmatter": "set", "key": "tags", "value": "c", "expectNull": true }
+      ],
+      "expected": "---\ntitle: New title\ntags: [a, b]\nowner: \"Jane Doe\"\n---\n\nBody\n" },
+    { "name": "frontmatter-crlf-add", "input": "---\r\ntitle: A\r\n---\r\nBody\r\n", "separator": "\r\n",
+      "ops": [{ "frontmatter": "add", "key": "status", "value": "draft" }], "expected": "---\r\ntitle: A\r\nstatus: draft\r\n---\r\nBody\r\n" },
+    { "name": "frontmatter-quotes-when-needed", "input": "---\ntitle: A\nflag: B\n---\n", "separator": "\n",
+      "ops": [
+        { "frontmatter": "set", "key": "title", "value": "Note: important" },
+        { "frontmatter": "set", "key": "flag", "value": "true" }
+      ],
+      "expected": "---\ntitle: \"Note: important\"\nflag: \"true\"\n---\n" },
+    { "name": "frontmatter-single-quotes-kept", "input": "---\nowner: 'Ann'\n---\n", "separator": "\n",
+      "ops": [{ "frontmatter": "set", "key": "owner", "value": "Ann's team" }], "expected": "---\nowner: 'Ann''s team'\n---\n" },
+    { "name": "frontmatter-list-read-only", "input": "---\ntags:\n  - a\n  - b\ntitle: X\n---\n", "separator": "\n",
+      "ops": [
+        { "frontmatter": "set", "key": "tags", "value": "c", "expectNull": true },
+        { "frontmatter": "set", "key": "title", "value": "Y" }
+      ],
+      "expected": "---\ntags:\n  - a\n  - b\ntitle: Y\n---\n" },
+    { "name": "frontmatter-remove", "input": "---\na: 1\nb: 2\n---\n", "separator": "\n",
+      "ops": [{ "frontmatter": "remove", "key": "a" }], "expected": "---\nb: 2\n---\n" },
+    { "name": "frontmatter-create", "input": "Body\n", "separator": "\n",
+      "ops": [{ "frontmatter": "add", "key": "title", "value": "Hello" }], "expected": "---\ntitle: Hello\n---\nBody\n" },
+    { "name": "frontmatter-after-bom", "input": "﻿---\ntitle: A\n---\n", "separator": "\n",
+      "ops": [{ "frontmatter": "set", "key": "title", "value": "B" }], "expected": "﻿---\ntitle: B\n---\n" }
+  ]
+}

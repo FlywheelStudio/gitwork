@@ -27,6 +27,9 @@ cannot hold gets a question for the owner, not a quiet local table.
 
 Phase 5 (Activity, inbox) merges into Track E, tier 1.
 
+**Change, 2026-11-19:** the owner started Phase 4 before the live GitHub check and Track E, tier 1.
+Phase 4 is built against the fake GitHub; the live check must also cover the docs write path.
+
 ## Step 0 — iCloud copies in PR #5 (blocker)
 
 Commit `0943411` on `feature/live-check` (PR #5) adds 24 files named `<name> 2.<ext>`:

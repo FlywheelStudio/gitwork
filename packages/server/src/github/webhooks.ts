@@ -6,7 +6,7 @@
  *    guarded cache writes. A duplicate fails on the delivery's primary key and rolls back the
  *    batch; a real failure leaves no trace, so a redelivery or reconcile can still apply it.
  */
-import { type Db, githubInstallationTokens, githubInstallations, githubWebhookDeliveries, ghProjects, ghSyncTargets } from "@gitwork/db";
+import { type Db, docPendingPrs, githubInstallationTokens, githubInstallations, githubWebhookDeliveries, ghProjects, ghSyncTargets } from "@gitwork/db";
 import { and, eq } from "drizzle-orm";
 import {
   type IssueJson,
@@ -29,6 +29,8 @@ import type { GitHubClient } from "./client";
 import type { GitHubAppConfig } from "./config";
 import { verifyWebhookSignature } from "./crypto";
 import { ISSUE_LINKS_QUERY, type IssueLinksNode, PROJECT_ITEM } from "./queries";
+import { planDocRootSync } from "./docs";
+import { allDocRoots } from "../services/docs";
 
 export interface WebhookDeps {
   db: Db;
@@ -178,8 +180,30 @@ async function planWrites(event: string, p: Payload, deps: WebhookDeps): Promise
       return [];
     }
 
+    case "push": {
+      // Re-read each docs folder on the pushed branch. The payload's file lists are capped and can
+      // be stale; the tree at the new head is the truth (decision 035).
+      const ref: string = p.ref ?? "";
+      if (!ref.startsWith("refs/heads/") || !p.repository?.node_id) return [];
+      const branch = ref.slice("refs/heads/".length);
+      const roots = (await allDocRoots(db, p.repository.node_id)).filter((r) => r.branch === branch);
+      const writes: Write[] = [];
+      for (const root of roots) writes.push(...(await planDocRootSync(db, deps.client, root, now)));
+      return writes;
+    }
+
+    case "pull_request": {
+      // A closed doc pull request (merged or not) ends "pending review". A merge also pushes.
+      if (p.action !== "closed" || !p.repository?.node_id) return [];
+      return [
+        db
+          .delete(docPendingPrs)
+          .where(and(eq(docPendingPrs.repoNodeId, p.repository.node_id), eq(docPendingPrs.prNumber, p.pull_request.number as number))),
+      ];
+    }
+
     default:
-      // ping, push (Phase 4), label (reconcile refreshes), …
+      // ping, label (reconcile refreshes), …
       return [];
   }
 }

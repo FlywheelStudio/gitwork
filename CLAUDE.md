@@ -52,8 +52,10 @@ docs/           INDEX.md → STATE.md → spec.md, decisions/
 - UI: shadcn/ui files in `apps/web/src/components/ui/` stay as the CLI writes them; app wrappers
   live in `components/kit.tsx`.
 - New `/api/v1` routes go in `packages/server/src/api/routes.ts`, with tests in
-  `packages/server/test/api.test.ts` or, for task and link routes, `api-tasks.test.ts`
-  (success, 401, 403, 400).
+  `packages/server/test/api.test.ts` or, for task and link routes, `api-tasks.test.ts`, or, for
+  doc routes, `api-docs.test.ts` (success, 401, 403, 400).
+- Docs: every path passes `normalizeDocPath()` and `isDocVisible()` (packages/core). Read the
+  editor's text with `docText()` (`sliceDoc`), never `doc.toString()`.
 - DB tests run on both drivers: `describe.each(await allTestDrivers())` from `@gitwork/db/testing`.
 - Pages read the request (`getSession()`/`connection()`) before any config, or `next build` fails.
 - Webhook handlers verify the signature and are idempotent on the delivery ID.

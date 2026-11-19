@@ -43,6 +43,9 @@
 | 031 | [Linear features out of scope for v1](decisions/031-v1-scope.md) |
 | 032 | [Triage is linked-repo issues not on the board](decisions/032-triage.md) |
 | 033 | [Sync by snapshot ETag, not a change table; no IndexedDB yet](decisions/033-snapshot-etag-sync.md) |
+| 035 | [Docs cache: tree by folder oid, text by blob sha](decisions/035-docs-cache.md) |
+| 036 | [Doc writes: one signed commit, conflict check, pull request fallback](decisions/036-doc-writes.md) |
+| 037 | ["Rich text" is a live preview over the source, not WYSIWYG](decisions/037-rich-text-view.md) |
 
 ## Features
 
@@ -57,3 +60,4 @@
 | [features/speed.md](features/speed.md) | Client store, /sync with ETag, optimistic edits, side panel, measured budgets. |
 | [features/keyboard.md](features/keyboard.md) | Shared keymap, command menu, pickers, bulk edit with undo, shortcut sheet. |
 | [features/shell.md](features/shell.md) | Workspace layout and sidebar, grouped virtualized list, dense cards, write-path line, dark mode. |
+| [features/docs.md](features/docs.md) | Doc tree, rich-text editor, frontmatter panel, images, commits, PR fallback, conflicts, presence. |

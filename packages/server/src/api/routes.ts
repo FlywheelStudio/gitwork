@@ -15,12 +15,28 @@ import {
 import { changeMemberRole, listMembers, removeMember } from "../services/members";
 import { getSignupPolicy, setSignupPolicy } from "../instance-settings";
 import { installUrl, isInstanceAdmin, removeGitHubApp, startManifestFlow } from "../github/setup";
-import { conflict, forbidden } from "../errors";
+import { badRequest, conflict, forbidden } from "../errors";
 import { getWorkspaceLink, linkWorkspace, listLinkCandidates, MAX_LINKED_REPOS, unlinkWorkspace } from "../services/link";
 import { createTask, getTask, listTasks, resolveMapping, setFieldMapping, updateTask } from "../services/tasks";
 import { serializedSnapshot } from "../services/board-sync";
 import { updateWorkspaceSettings } from "../services/workspace-settings";
+import {
+  MAX_ATTACHMENTS,
+  createDoc,
+  deleteDoc,
+  getDoc,
+  heartbeat,
+  leave,
+  listDocs,
+  rawDocFile,
+  refreshDocs,
+  renameDoc,
+  saveDoc,
+  setDocsConfig,
+  workspaceDocRepos,
+} from "../services/docs";
 import { type RouteContext, createApiHandler, route } from "./router";
+import type { GitHubClient } from "../github/client";
 
 /** GitHub-backed services need the App; before /setup there is none. */
 function githubDeps(ctx: RouteContext) {
@@ -31,6 +47,33 @@ function githubDeps(ctx: RouteContext) {
 function taskDeps(ctx: RouteContext) {
   const user = ctx.session!.user;
   return { ...githubDeps(ctx), displayName: user.name?.trim() || user.email };
+}
+
+/** Calls GitHub only when it must: without the App, cached docs still open. */
+const NO_GITHUB = new Proxy({} as GitHubClient, {
+  get() {
+    return () => {
+      throw conflict("github_not_setup", "The GitHub App is not set up on this instance yet.");
+    };
+  },
+});
+
+function readDeps(ctx: RouteContext) {
+  return { db: ctx.deps.database.db, client: ctx.deps.github?.client ?? NO_GITHUB, auth: ctx.deps.auth };
+}
+
+function docDeps(ctx: RouteContext) {
+  const user = ctx.session!.user;
+  return { ...githubDeps(ctx), author: { name: user.name?.trim() || user.email, email: user.email } };
+}
+
+/** `?repo=…&path=…` on doc reads, deletes, and presence. */
+function fileQuery(request: Request) {
+  const q = new URL(request.url).searchParams;
+  const repo = q.get("repo") ?? "";
+  const path = q.get("path") ?? "";
+  if (!repo || !path || repo.length > 200 || path.length > 400) throw badRequest("Name a repo and a path.");
+  return { repo, path, sha: q.get("sha") ?? "" };
 }
 
 function requireInstanceAdmin(ctx: RouteContext) {
@@ -51,6 +94,11 @@ const fieldChanges = z.record(nodeId, fieldInput.nullable()).optional();
 const taskTitle = z.string().trim().min(1, "Title is required.").max(256, "Title is too long.");
 // GitHub's issue body limit.
 const taskBody = z.string().max(65_536, "The description is too long.");
+const docPath = z.string().min(1, "Name the doc.").max(400, "That path is too long.");
+const blobSha = z.string().regex(/^[0-9a-f]{40}$/, "Unknown version of the doc.");
+// The service checks the UTF-8 size (1 MB); this only stops absurd bodies early.
+const docText = z.string().max(1_000_000, "This doc is too large to save here.");
+const attachment = z.object({ path: docPath, data: z.string().max(14_000_000, "Images can be at most 10 MB.") });
 
 export const routes = [
   route({
@@ -166,6 +214,129 @@ export const routes = [
 
   route({
     method: "GET",
+    pattern: "/workspaces/:workspaceId/docs",
+    async handler({ deps, session, params }) {
+      const access = await requireWorkspaceAccess(deps.database.db, session!.user.id, params.workspaceId!);
+      return listDocs(deps.database.db, access);
+    },
+  }),
+
+  route({
+    method: "POST",
+    pattern: "/workspaces/:workspaceId/docs/refresh",
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "docs.write");
+      const out = await refreshDocs(githubDeps(ctx), access);
+      return { synced: out.synced.length, failed: out.failed.length };
+    },
+  }),
+
+  route({
+    method: "GET",
+    pattern: "/workspaces/:workspaceId/docs/file",
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      const q = fileQuery(ctx.request);
+      return { doc: await getDoc(readDeps(ctx), access, q.repo, q.path) };
+    },
+  }),
+
+  route({
+    method: "GET",
+    pattern: "/workspaces/:workspaceId/docs/raw",
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      const q = fileQuery(ctx.request);
+      return rawDocFile(githubDeps(ctx), access, q.repo, q.path);
+    },
+  }),
+
+  route({
+    method: "PUT",
+    pattern: "/workspaces/:workspaceId/docs/file",
+    body: z.object({
+      repoNodeId: nodeId,
+      path: docPath,
+      baseSha: blobSha,
+      text: docText,
+      attachments: z.array(attachment).max(MAX_ATTACHMENTS).optional(),
+      message: z.string().max(200).optional(),
+    }),
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "docs.write");
+      return saveDoc(docDeps(ctx), access, ctx.body);
+    },
+  }),
+
+  route({
+    method: "POST",
+    pattern: "/workspaces/:workspaceId/docs/file",
+    body: z.object({ repoNodeId: nodeId, path: docPath, text: docText.optional() }),
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "docs.write");
+      return createDoc(docDeps(ctx), access, ctx.body);
+    },
+  }),
+
+  route({
+    method: "POST",
+    pattern: "/workspaces/:workspaceId/docs/rename",
+    body: z.object({ repoNodeId: nodeId, path: docPath, baseSha: blobSha, newPath: docPath }),
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "docs.write");
+      return renameDoc(docDeps(ctx), access, ctx.body);
+    },
+  }),
+
+  route({
+    method: "DELETE",
+    pattern: "/workspaces/:workspaceId/docs/file",
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "docs.delete");
+      const q = fileQuery(ctx.request);
+      if (!/^[0-9a-f]{40}$/.test(q.sha)) throw badRequest("Unknown version of the doc.");
+      return deleteDoc(docDeps(ctx), access, { repoNodeId: q.repo, path: q.path, baseSha: q.sha });
+    },
+  }),
+
+  route({
+    method: "POST",
+    pattern: "/workspaces/:workspaceId/docs/presence",
+    body: z.object({ repoNodeId: nodeId, path: docPath }),
+    async handler({ deps, session, params, body }) {
+      const access = await requireWorkspaceAccess(deps.database.db, session!.user.id, params.workspaceId!);
+      return { editors: await heartbeat(deps.database.db, access, body.repoNodeId, body.path) };
+    },
+  }),
+
+  route({
+    method: "DELETE",
+    pattern: "/workspaces/:workspaceId/docs/presence",
+    async handler({ deps, session, params, request }) {
+      const access = await requireWorkspaceAccess(deps.database.db, session!.user.id, params.workspaceId!);
+      const q = fileQuery(request);
+      await leave(deps.database.db, access, q.repo, q.path);
+    },
+  }),
+
+  route({
+    method: "PATCH",
+    pattern: "/workspaces/:workspaceId/github/repos/:repoNodeId/docs",
+    body: z.object({ docsPath: z.string().max(200).optional(), docsBranch: z.string().max(200).nullable().optional() }),
+    async handler(ctx) {
+      const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
+      requireCapability(access, "workspace.github_settings");
+      await setDocsConfig(githubDeps(ctx), access, { repoNodeId: ctx.params.repoNodeId!, ...ctx.body });
+    },
+  }),
+
+  route({
+    method: "GET",
     pattern: "/workspaces/:workspaceId/github",
     async handler({ deps, session, params }) {
       const { db } = deps.database;
@@ -173,11 +344,20 @@ export const routes = [
       const data = await getWorkspaceLink(db, params.workspaceId!);
       if (!data) return { linked: false };
       const fields = data.fields.map((f) => ({ id: f.nodeId, name: f.name, dataType: f.dataType }));
+      const docRepos = await workspaceDocRepos(db, params.workspaceId!);
       return {
         linked: true,
         installationId: data.link.installationId,
         board: data.project ? { nodeId: data.project.nodeId, title: data.project.title, url: data.project.url, available: data.project.available } : null,
-        repos: data.repos.map((r) => ({ nodeId: r.nodeId, fullName: r.fullName, available: r.available })),
+        repos: data.repos.map((r) => {
+          const d = docRepos.find((x) => x.repoNodeId === r.nodeId);
+          return {
+            nodeId: r.nodeId,
+            fullName: r.fullName,
+            available: r.available,
+            docs: d ? { path: d.path, branch: d.branch, defaultBranch: d.defaultBranch } : null,
+          };
+        }),
         fields,
         mapping: resolveMapping(fields, data.link),
       };
@@ -239,6 +419,8 @@ export const routes = [
     pattern: "/workspaces/:workspaceId/settings",
     body: z.object({
       hideLabel: z.string().max(50).nullable().optional(),
+      hideFolder: z.string().max(200).nullable().optional(),
+      reviewBotDocEdits: z.boolean().optional(),
       showDraftsToReadOnly: z.boolean().optional(),
       readOnlyCanComment: z.boolean().optional(),
     }),
