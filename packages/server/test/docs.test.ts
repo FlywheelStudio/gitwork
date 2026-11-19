@@ -12,6 +12,7 @@ import {
   heartbeat,
   listDocs,
   rawDocFile,
+  refreshDocs,
   renameDoc,
   saveDoc,
   setDocsConfig,
@@ -72,6 +73,8 @@ describe.each(drivers)("docs on $name", (driver: TestDriver) => {
       "docs/bad.md": new Uint8Array([0x23, 0x20, 0xff, 0x0a]),
     });
     await linkWorkspace(w.deps, await w.access("jane"), { installationId: 99, projectNodeId: IDS.board, repoNodeIds: [IDS.site] });
+    // These tests cover a repo narrowed to its docs/ folder; "whole repo" below covers the default.
+    await setDocsConfig(w.deps, await w.access("jane"), { repoNodeId: IDS.site, docsPath: "docs" });
     await updateWorkspaceSettings(w.db, await w.access("owner"), { hideFolder: "Internal" });
     w.fake.writes = [];
   });
@@ -370,6 +373,57 @@ describe.each(drivers)("docs on $name", (driver: TestDriver) => {
       expect(await heartbeat(w.db, await w.access("jane"), IDS.site, "docs/README.md", new Date(t0.getTime() + 60_000))).toEqual([]);
       await rejects(heartbeat(w.db, await w.access("rita"), IDS.site, "docs/README.md", t0), 403);
       await rejects(heartbeat(w.db, await w.access("max"), IDS.site, "README.md", t0), 404);
+    });
+  });
+
+  describe("whole repo (the default, decision 038)", () => {
+    beforeEach(async () => {
+      await setDocsConfig(w.deps, await w.access("jane"), { repoNodeId: IDS.site, docsPath: "" });
+      await updateWorkspaceSettings(w.db, await w.access("owner"), { hideFolder: "docs/internal" });
+    });
+
+    it("lists every tracked file in the repo's own folders", async () => {
+      const [repo] = (await listDocs(w.db, await w.access("max"))).repos;
+      expect(repo).toMatchObject({ root: "", status: "ok" });
+      expect(await paths("max")).toEqual(expect.arrayContaining(["README.md", "docs/README.md", "docs/guide/setup.md", "docs/internal/plan.md"]));
+      expect((await doc("max", "README.md")).text).toBe("# Site\n");
+    });
+
+    it("hides the hide folder, now counted from the repo root", async () => {
+      const reader = await paths("rita");
+      expect(reader).toContain("README.md");
+      expect(reader.some((p) => p.startsWith("docs/internal/"))).toBe(false);
+      await rejects(doc("rita", "docs/internal/plan.md"), 404);
+    });
+
+    it("creates a doc at the repo root and refuses unsafe paths", async () => {
+      expect((await createDoc(writer("max"), await w.access("max"), { repoNodeId: IDS.site, path: "NOTES.md" })).status).toBe("committed");
+      expect(w.fake.fileText(SITE, "main", "NOTES.md")).toBe("# NOTES\n");
+      await rejects(createDoc(writer("max"), await w.access("max"), { repoNodeId: IDS.site, path: "../NOTES.md" }), 404);
+      await rejects(createDoc(writer("max"), await w.access("max"), { repoNodeId: IDS.site, path: ".git/x.md" }), 404);
+    });
+
+    it("keeps a repo's docs settings when the workspace links again, and new repos get the whole repo", async () => {
+      await setDocsConfig(w.deps, await w.access("jane"), { repoNodeId: IDS.site, docsPath: "docs", docsBranch: "main" });
+      await linkWorkspace(w.deps, await w.access("jane"), { installationId: 99, projectNodeId: IDS.board, repoNodeIds: [IDS.site, IDS.internal] });
+      const repos = await listDocs(w.db, await w.access("max"));
+      expect(repos.repos.map((r) => [r.fullName, r.root]).sort()).toEqual([
+        ["acme/internal", ""],
+        ["acme/site", "docs"],
+      ]);
+    });
+  });
+
+  describe("automatic loading", () => {
+    it("loads never-synced repos for any member, Read Only included, and skips synced ones", async () => {
+      await w.db.delete(ghDocRoots);
+      await w.db.delete(ghDocFiles);
+      expect((await listDocs(w.db, await w.access("rita"))).repos[0]!.status).toBe("unsynced");
+      expect((await refreshDocs(w.deps, await w.access("rita"))).synced).toHaveLength(1);
+      expect((await listDocs(w.db, await w.access("rita"))).repos[0]!.status).toBe("ok");
+      w.fake.requests = [];
+      expect((await refreshDocs(w.deps, await w.access("rita"))).synced).toHaveLength(0);
+      expect(w.fake.requests).toEqual([]);
     });
   });
 

@@ -20,8 +20,8 @@ Last updated: 2026-11-19
 
 ## In Progress
 
-Phase 4 — Docs on web: built on `feature/docs-web`, PR open, waiting for the owner's merge. The owner
-said "start phase 4" on 2026-11-19, ahead of the live GitHub check and Track E.
+Docs show each repo's whole tree, loaded automatically (decision 038): `feature/docs-repo-tree`, PR
+open, waiting for the owner's merge. Production runs PR #16 (deployed 2026-11-19).
 
 First Cloudflare deploy (blocked on the owner's account steps, above).
 
@@ -39,7 +39,7 @@ First Cloudflare deploy (blocked on the owner's account steps, above).
 | Track C — Keyboard and command menu (PR #9) | 2026-11-10 | [features/keyboard.md](features/keyboard.md) |
 | Track D — App shell and clear UI (PR #10) | 2026-11-10 | [features/shell.md](features/shell.md) |
 | Timeline virtualization, roadmap B6 (PR #11) | 2026-11-10 | [features/shell.md](features/shell.md) |
-| Phase 4 — Docs on web (decisions 035–037; PR awaiting merge) | 2026-11-19 | [features/docs.md](features/docs.md) |
+| Phase 4 — Docs on web (decisions 035–037; PR #16) | 2026-11-19 | [features/docs.md](features/docs.md) |
 
 ## Backlog
 

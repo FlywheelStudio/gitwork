@@ -4,7 +4,8 @@
  */
 
 export const MAX_PATH_LENGTH = 400;
-export const DEFAULT_DOCS_ROOT = "docs";
+/** The whole repo (decision 038). A root is "" or a folder path. */
+export const REPO_ROOT = "";
 
 // Control characters and backslashes never appear in a path we accept.
 const BAD_CHARS = /[\u0000-\u001f\u007f\\]/;
@@ -24,18 +25,30 @@ export function normalizeDocPath(input: string): string | null {
   return segments ? segments.join("/") : null;
 }
 
-/** A docs folder setting. Leading and trailing slashes are dropped; "" is not a folder. */
+/** A docs folder setting. Leading and trailing slashes are dropped; "" (or "/") is the whole repo. */
 export function normalizeRoot(input: string): string | null {
-  return normalizeDocPath(input.trim().replace(/^\/+|\/+$/g, ""));
+  const trimmed = input.trim().replace(/^\/+|\/+$/g, "");
+  return trimmed === "" ? REPO_ROOT : normalizeDocPath(trimmed);
 }
 
 export function isUnderRoot(path: string, root: string): boolean {
-  return path.startsWith(`${root}/`);
+  return root === REPO_ROOT ? path.length > 0 : path.startsWith(`${root}/`);
 }
 
 /** The part of `path` below `root` ("docs/a/b.md" → "a/b.md"). */
 export function relativeToRoot(path: string, root: string): string {
-  return isUnderRoot(path, root) ? path.slice(root.length + 1) : path;
+  return root !== REPO_ROOT && isUnderRoot(path, root) ? path.slice(root.length + 1) : path;
+}
+
+/** `rel` inside `root`. */
+export function joinRoot(root: string, rel: string): string {
+  return root === REPO_ROOT ? rel : `${root}/${rel}`;
+}
+
+/** The folder a file sits in ("" at the repo root). */
+export function folderOf(path: string): string {
+  const slash = path.lastIndexOf("/");
+  return slash === -1 ? REPO_ROOT : path.slice(0, slash);
 }
 
 export function isMarkdownPath(path: string): boolean {

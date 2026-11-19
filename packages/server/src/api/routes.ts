@@ -226,7 +226,6 @@ export const routes = [
     pattern: "/workspaces/:workspaceId/docs/refresh",
     async handler(ctx) {
       const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
-      requireCapability(access, "docs.write");
       const out = await refreshDocs(githubDeps(ctx), access);
       return { synced: out.synced.length, failed: out.failed.length };
     },

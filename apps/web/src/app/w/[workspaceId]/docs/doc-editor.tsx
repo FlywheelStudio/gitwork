@@ -5,7 +5,7 @@ import { syntaxHighlighting } from "@codemirror/language";
 import { searchKeymap } from "@codemirror/search";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, drawSelection, dropCursor, keymap, placeholder } from "@codemirror/view";
-import { MAX_EDITABLE_BYTES, type TextChange, lineSeparatorOf, relativeLink, resolveRelative, safeFileName } from "@gitwork/core";
+import { MAX_EDITABLE_BYTES, type TextChange, folderOf, joinRoot, lineSeparatorOf, relativeLink, resolveRelative, safeFileName } from "@gitwork/core";
 import type { DocView, Editor } from "@gitwork/server";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -107,7 +107,8 @@ export function DocEditor(props: { workspaceId: string; repoNodeId: string; path
         const base = safeFileName(file.name || "image.png");
         const dot = base.lastIndexOf(".");
         const name = `${base.slice(0, dot > 0 ? dot : undefined)}-${Date.now().toString(36)}${dot > 0 ? base.slice(dot) : ".png"}`;
-        const abs = `${doc.root}/assets/${name}`;
+        // Next to the doc: <its folder>/assets/ (decision 038).
+        const abs = joinRoot(folderOf(path), `assets/${name}`);
         const link = relativeLink(path, abs);
         images.current.set(abs, { data: await toBase64(file), url: URL.createObjectURL(file), link });
         const alt = (file.name || "image").replace(/\.[^.]+$/, "").replace(/[[\]]/g, "");
@@ -285,7 +286,7 @@ export function DocEditor(props: { workspaceId: string; repoNodeId: string; path
   async function rename() {
     if (!doc) return;
     const clean = newName.trim().replace(/^\/+/, "");
-    const target = `${doc.root}/${/\.(md|markdown)$/i.test(clean) ? clean : `${clean}.md`}`;
+    const target = joinRoot(doc.root, /\.(md|markdown)$/i.test(clean) ? clean : `${clean}.md`);
     try {
       const out = await docs.rename({ repoNodeId, path, baseSha: baseSha.current, newPath: target });
       setRenaming(false);

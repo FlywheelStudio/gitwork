@@ -60,6 +60,7 @@ export default async function WorkspaceSettingsPage({ params }: PageProps<"/w/[w
         {data && github.ok && docRepos.length > 0 && (
           <Card className="space-y-4">
             <h2 className="font-medium">Docs folders</h2>
+            <p className="text-sm text-muted-foreground">Empty shows the whole repo. Enter a folder, such as docs, to show only that folder.</p>
             <DocFoldersPanel
               workspaceId={workspaceId}
               repos={docRepos.map((r) => ({ nodeId: r.repoNodeId, fullName: r.fullName, path: r.path, branch: r.branch, defaultBranch: r.defaultBranch }))}

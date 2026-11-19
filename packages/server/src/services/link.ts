@@ -180,6 +180,10 @@ export async function linkWorkspace(deps: GitHubServiceDeps, access: WorkspaceAc
   }
 
   const [previous] = await db.select().from(workspaceGithub).where(eq(workspaceGithub.workspaceId, access.workspace.id));
+  // A repo that stays linked keeps its docs root and branch; a new one shows the whole repo (038).
+  const keptDocs = new Map(
+    (await db.select().from(workspaceRepos).where(eq(workspaceRepos.workspaceId, access.workspace.id))).map((r) => [r.repoNodeId, r]),
+  );
   const boardChanged = previous?.projectNodeId !== project.id;
   const workspaceId = access.workspace.id;
   await db.batch([
@@ -198,7 +202,14 @@ export async function linkWorkspace(deps: GitHubServiceDeps, access: WorkspaceAc
         },
       }),
     db.delete(workspaceRepos).where(eq(workspaceRepos.workspaceId, workspaceId)),
-    db.insert(workspaceRepos).values(repoIds.map((repoNodeId) => ({ workspaceId, repoNodeId }))),
+    db.insert(workspaceRepos).values(
+      repoIds.map((repoNodeId) => ({
+        workspaceId,
+        repoNodeId,
+        docsPath: keptDocs.get(repoNodeId)?.docsPath ?? "",
+        docsBranch: keptDocs.get(repoNodeId)?.docsBranch ?? null,
+      })),
+    ),
     ...picked.map((r) => upsertRepo(db, installation.id, r!, now)),
     upsertProject(db, {
       nodeId: project.id,

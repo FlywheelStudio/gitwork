@@ -1,8 +1,10 @@
 "use client";
 import type { DocFileView, DocRepoView } from "@gitwork/server";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { joinRoot, relativeToRoot } from "@gitwork/core";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, ErrorText, Input } from "@/components/kit";
 import { api } from "@/lib/api";
 import { decodeSegment, docHref, rawHref } from "./links";
@@ -15,14 +17,15 @@ interface Folder {
 }
 
 function buildTree(repo: DocRepoView): Folder {
-  const root: Folder = { name: repo.root, path: repo.root, folders: new Map(), files: [] };
+  // The repo is the top folder; below it, the repo's own folders (decision 038).
+  const root: Folder = { name: repo.fullName.split("/")[1] ?? repo.fullName, path: repo.root, folders: new Map(), files: [] };
   for (const file of repo.files) {
-    const parts = file.path.slice(repo.root.length + 1).split("/");
+    const parts = relativeToRoot(file.path, repo.root).split("/");
     let folder = root;
     for (const part of parts.slice(0, -1)) {
       let next = folder.folders.get(part);
       if (!next) {
-        next = { name: part, path: `${folder.path}/${part}`, folders: new Map(), files: [] };
+        next = { name: part, path: joinRoot(folder.path, part), folders: new Map(), files: [] };
         folder.folders.set(part, next);
       }
       folder = next;
@@ -34,8 +37,8 @@ function buildTree(repo: DocRepoView): Folder {
 
 const STATUS_TEXT: Record<DocRepoView["status"], string> = {
   ok: "",
-  unsynced: "Not loaded from GitHub yet.",
-  missing: "This folder does not exist on the branch yet. Create a doc to start it.",
+  unsynced: "Loading from GitHub…",
+  missing: "Nothing on this branch yet. Create a doc to start it.",
   unavailable: "The GitHub App cannot reach this repo right now.",
 };
 
@@ -48,23 +51,21 @@ export function DocsTree(props: { workspaceId: string; linked: boolean; repos: D
   const [creating, setCreating] = useState<string | null>(null);
   const [name, setName] = useState("");
 
-  async function refresh() {
-    setBusy(true);
-    setError("");
-    try {
-      await api("POST", `/workspaces/${props.workspaceId}/docs/refresh`);
-      router.refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  // Repos never read from GitHub load on their own: no button (decision 038). Once per page.
+  const loading = useRef(false);
+  const unsynced = props.repos.some((r) => r.status === "unsynced");
+  useEffect(() => {
+    if (!unsynced || loading.current) return;
+    loading.current = true;
+    api("POST", `/workspaces/${props.workspaceId}/docs/refresh`)
+      .then(() => router.refresh())
+      .catch((e: Error) => setError(e.message));
+  }, [unsynced, props.workspaceId, router]);
 
   async function create(repo: DocRepoView) {
     const clean = name.trim().replace(/^\/+/, "");
     if (!clean) return;
-    const path = `${repo.root}/${/\.(md|markdown)$/i.test(clean) ? clean : `${clean}.md`}`;
+    const path = joinRoot(repo.root, /\.(md|markdown)$/i.test(clean) ? clean : `${clean}.md`);
     setBusy(true);
     setError("");
     try {
@@ -85,10 +86,7 @@ export function DocsTree(props: { workspaceId: string; linked: boolean; repos: D
     <aside aria-label="Docs" className="shrink-0 space-y-4 text-sm md:w-64">
       {props.repos.map((repo) => (
         <section key={repo.repoNodeId} className="space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="truncate text-xs font-medium text-muted-foreground" title={`${repo.fullName} · ${repo.root}/ on ${repo.branch}`}>
-              {repo.fullName}
-            </h2>
+          <div className="flex items-center justify-end gap-2">
             {props.canWrite && repo.status !== "unavailable" && (
               <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setCreating(creating === repo.repoNodeId ? null : repo.repoNodeId)}>
                 + New doc
@@ -109,18 +107,10 @@ export function DocsTree(props: { workspaceId: string; linked: boolean; repos: D
               </Button>
             </form>
           )}
-          {repo.status !== "ok" && (
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p>{STATUS_TEXT[repo.status]}</p>
-              {repo.status === "unsynced" && props.canWrite && (
-                <Button variant="secondary" className="h-7" disabled={busy} onClick={() => void refresh()}>
-                  Load from GitHub
-                </Button>
-              )}
-            </div>
-          )}
-          {repo.status === "ok" && <FolderView workspaceId={props.workspaceId} repo={repo} folder={buildTree(repo)} current={current} depth={0} />}
-          {repo.status === "ok" && repo.files.length === 0 && <p className="text-xs text-muted-foreground">No files in {repo.root}/ yet.</p>}
+          <FolderView workspaceId={props.workspaceId} repo={repo} folder={buildTree(repo)} current={current} depth={0}>
+            {repo.status !== "ok" && <p className="px-2 py-1 text-xs text-muted-foreground">{STATUS_TEXT[repo.status]}</p>}
+            {repo.status === "ok" && repo.files.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No files yet.</p>}
+          </FolderView>
           {repo.truncated && <p className="text-xs text-amber-600">This folder has more files than Gitwork lists.</p>}
         </section>
       ))}
@@ -129,7 +119,7 @@ export function DocsTree(props: { workspaceId: string; linked: boolean; repos: D
   );
 }
 
-function FolderView(props: { workspaceId: string; repo: DocRepoView; folder: Folder; current: string | null; depth: number }) {
+function FolderView(props: { workspaceId: string; repo: DocRepoView; folder: Folder; current: string | null; depth: number; children?: ReactNode }) {
   const { folder, repo, depth } = props;
   const folders = useMemo(() => [...folder.folders.values()].sort((a, b) => a.name.localeCompare(b.name)), [folder]);
   const [open, setOpen] = useState(true);
@@ -137,7 +127,7 @@ function FolderView(props: { workspaceId: string; repo: DocRepoView; folder: Fol
     <ul className="space-y-0.5">
       {folders.map((f) => (
         <li key={f.path}>
-          <FolderView {...props} folder={f} depth={depth + 1} />
+          <FolderView workspaceId={props.workspaceId} repo={repo} folder={f} current={props.current} depth={depth + 1} />
         </li>
       ))}
       {folder.files.map((file) => {
@@ -165,16 +155,26 @@ function FolderView(props: { workspaceId: string; repo: DocRepoView; folder: Fol
       })}
     </ul>
   );
-  if (depth === 0) return body;
   return (
     <div>
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-1 rounded-md px-2 py-1 text-left text-muted-foreground hover:bg-muted">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        title={depth === 0 ? `${repo.fullName} · ${repo.root ? `${repo.root}/ ` : ""}on ${repo.branch}` : undefined}
+        className={`flex w-full items-center gap-1 rounded-md px-2 py-1 text-left hover:bg-muted ${depth === 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}
+      >
         <span aria-hidden className="w-3 text-xs">
           {open ? "▾" : "▸"}
         </span>
         <span className="truncate">{folder.name}</span>
       </button>
-      {open && <div className="ml-3 border-l border-border pl-1">{body}</div>}
+      {open && (
+        <div className="ml-3 border-l border-border pl-1">
+          {props.children}
+          {body}
+        </div>
+      )}
     </div>
   );
 }

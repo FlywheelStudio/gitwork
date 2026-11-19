@@ -1,17 +1,18 @@
 # Docs on web — tree, rich-text editor, commits
 
-Shipped 2026-11-19 (Phase 4). Branch `feature/docs-web`. Decisions 008, 011, 012, 035, 036, 037.
+Shipped 2026-11-19 (Phase 4, PR #16; whole-repo trees in `feature/docs-repo-tree`). Decisions 008, 011, 012, 035, 036, 037, 038.
 
 ## What it does
-- **Docs** in the workspace sidebar lists every file under each linked repo's docs folder (default
-  `docs/`, set per repo with its branch in Settings → Docs folders). Markdown files open in the
-  editor; images and other files open through an access-checked proxy.
+- **Docs** in the workspace sidebar shows each linked repo as a folder holding the repo's own
+  structure: every tracked file (decision 038). An Admin can narrow a repo to one folder and pick
+  its branch in Settings → Docs folders. Markdown files open in the editor; images and other files
+  open through an access-checked proxy. Repos load on their own, with no button.
 - The editor opens in **Rich text**: formatted text with markdown marks hidden off the cursor's
   line (decision 037). **Markdown** shows the plain source. A toolbar and ⌘B / ⌘I / ⌘S format and
   save. Frontmatter edits in a **properties panel**; lists and maps stay read-only there.
 - **Save** is one signed commit on GitHub. The user's own token is used when they linked GitHub;
   otherwise the App commits with `Co-authored-by: <name> <email>` (decision 008).
-- **Paste or drop an image**: it goes to `<docs>/assets/` and commits with the doc, linked by a
+- **Paste or drop an image**: it goes to `assets/` next to the doc and commits with the doc, linked by a
   relative path. Up to 10 MB each, 5 per save.
 - **Conflicts**: if the doc changed on GitHub since it was opened, a side-by-side view shows
   GitHub's version and yours; save yours on top, keep editing, or take GitHub's.
@@ -41,7 +42,7 @@ Shipped 2026-11-19 (Phase 4). Branch `feature/docs-web`. Decisions 008, 011, 012
 | `apps/web/src/app/w/[workspaceId]/docs/` | Layout + tree (cache only), editor, properties panel, conflict view. |
 
 **API (`/api/v1/workspaces/:id/…`).** `GET docs`, `POST docs/refresh`, `GET docs/file?repo&path`,
-`PUT docs/file` (save), `POST docs/file` (create), `POST docs/rename`, `DELETE docs/file?repo&path&sha`,
+`PUT docs/file` (save; `docs/refresh` loads never-synced repos and any member may call it), `POST docs/file` (create), `POST docs/rename`, `DELETE docs/file?repo&path&sha`,
 `GET docs/raw?repo&path`, `POST|DELETE docs/presence`, `PATCH github/repos/:repoNodeId/docs`,
 `PATCH settings` (`hideFolder`, `reviewBotDocEdits`). Write routes check the role first.
 `GET docs/file` works without the GitHub App while the text is cached.
@@ -60,6 +61,7 @@ against `gh_doc_files`. Text is fetched on first open and cached by blob sha.
 `workspace_repos.docs_path`, `.docs_branch`; `workspaces.hide_folder`, `.review_bot_doc_edits`;
 `gh_doc_roots`, `gh_doc_files`, `gh_doc_blobs` (cache, rebuilt from GitHub); `doc_pending_prs`;
 `doc_presence` (45-second heartbeat rows). Migration `0005_docs.sql`, additive only.
+`0006_docs_whole_repo.sql` moves rows on the old `docs` default to `""` (the whole repo).
 
 ## External services
 GitHub App permissions already in the manifest: Contents (rw), Pull requests (rw). Webhooks
@@ -87,6 +89,10 @@ GitHub App permissions already in the manifest: Contents (rw), Pull requests (rw
   statement. Test: "larger than one statement's bound parameters" (fails on D1 at 60).
 - **SVG can carry script.** Raw files are served with `CSP: default-src 'none'; sandbox` and
   `nosniff`. Test: `docs.test.ts` reads.
+- **A root of `""` is the whole repo.** Join paths with `joinRoot()`, never `${root}/…` (that gives a
+  leading slash). Test: "whole repo" in `docs.test.ts`.
+- **Relinking used to reset each repo's docs settings** (the link deletes and re-inserts
+  `workspace_repos`). It now carries them over. Test: "keeps a repo's docs settings".
 - **The hide folder matches whole segments and ignores case.** Test: `paths.test.ts`, `docs.test.ts`.
 - **Unverified against real GitHub:** the protected-branch refusal of `createCommitOnBranch`, and
   10 MB images in one GraphQL request. Confirm in the live GitHub check.

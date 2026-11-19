@@ -60,7 +60,7 @@ export function isTaskVisible(item: ItemFacts, ctx: VisibilityContext): boolean 
 export interface DocVisibilityContext {
   /** `items.view_hidden`: may see files under the hide folder. */
   canViewHidden: boolean;
-  /** The workspace's hide folder, relative to each repo's docs folder, or null. */
+  /** The workspace's hide folder, relative to each repo's docs root, or null. */
   hideFolder: string | null;
 }
 
@@ -74,9 +74,10 @@ export function docVisibilityContext(actor: Actor, settings: PermissionSettings,
  * a hidden folder is matched without case, so "Internal/" and "internal/" both hide.
  */
 export function isDocVisible(path: string, root: string, ctx: DocVisibilityContext): boolean {
-  if (!path.startsWith(`${root}/`)) return false;
+  // "" is the whole repo (decision 038).
+  if (root === "" ? path.length === 0 : !path.startsWith(`${root}/`)) return false;
   if (ctx.canViewHidden || !ctx.hideFolder) return true;
-  const rel = path.slice(root.length + 1).toLowerCase();
+  const rel = (root === "" ? path : path.slice(root.length + 1)).toLowerCase();
   const hidden = ctx.hideFolder.toLowerCase();
   return rel !== hidden && !rel.startsWith(`${hidden}/`);
 }
