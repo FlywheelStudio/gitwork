@@ -114,6 +114,9 @@ test("docs: tree, hide folder, rich-text editor, frontmatter panel", async ({ br
   await expect(editor.locator(".cm-lp-h1")).toHaveText("Handbook");
   await expect(editor.locator(".cm-lp-strong")).toHaveText("bold");
   await expect(editor.locator("input.cm-lp-task")).toHaveCount(1);
+  // Frontmatter lives in the properties panel; the parser would draw it as a rule and a heading.
+  await expect(editor.getByText("title: Welcome")).toHaveCount(0);
+  await expect(editor.locator("hr")).toHaveCount(0);
   await editor.locator(".cm-lp-h1").click();
   await expect(editor.locator(".cm-lp-h1")).toHaveText("# Handbook");
 

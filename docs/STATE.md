@@ -1,6 +1,6 @@
 # State
 
-Last updated: 2026-11-10
+Last updated: 2026-11-19
 
 ## Resume here
 
@@ -20,6 +20,9 @@ Last updated: 2026-11-10
 
 ## In Progress
 
+Phase 4 — Docs on web: built on `feature/docs-web`, PR open, waiting for the owner's merge. The owner
+said "start phase 4" on 2026-11-19, ahead of the live GitHub check and Track E.
+
 First Cloudflare deploy (blocked on the owner's account steps, above).
 
 ## Completed
@@ -36,6 +39,7 @@ First Cloudflare deploy (blocked on the owner's account steps, above).
 | Track C — Keyboard and command menu (PR #9) | 2026-11-10 | [features/keyboard.md](features/keyboard.md) |
 | Track D — App shell and clear UI (PR #10) | 2026-11-10 | [features/shell.md](features/shell.md) |
 | Timeline virtualization, roadmap B6 (PR #11) | 2026-11-10 | [features/shell.md](features/shell.md) |
+| Phase 4 — Docs on web (decisions 035–037; PR awaiting merge) | 2026-11-19 | [features/docs.md](features/docs.md) |
 
 ## Backlog
 
@@ -44,11 +48,12 @@ Order: `docs/roadmap.md` (decisions 023–033).
 0. Live GitHub check on the deployed instance (gate for Track E and Phase 4).
 1. Track E tier 1 — Triage, My tasks, priority/estimate/labels/assignees edits, comments, saved
    views, inbox (merges Phase 5).
-2. Phase 4 — Docs on web (editor, round-trip fidelity, images, PR fallback, conflicts)
-3. Phase 6 — Mac app v1
-4. Deploy to Cloudflare button (needs the app isolated in one folder; see features/self-host.md)
+2. Phase 6 — Mac app v1 (reuse `packages/core/fixtures/docs/`)
+3. Deploy to Cloudflare button (needs the app isolated in one folder; see features/self-host.md)
 
 Chores:
+- **Docs, after the live GitHub check:** confirm the protected-branch refusal of
+  `createCommitOnBranch` triggers the PR fallback, and that a 10 MB image commits (decision 036).
 - **Server job queue for bulk edits (decision 027).** Bulk edits run in the browser, one by one,
   for now (features/keyboard.md). Build the queue (decision 004 adapter) before bulk edits grow.
 - Before a hosted launch: `/github/installed` should show org names only to users whose GitHub

@@ -314,6 +314,19 @@ describe.each(drivers)("docs on $name", (driver: TestDriver) => {
       expect(list).not.toContain("docs/README.md");
     });
 
+    it("syncs a folder larger than one statement's bound parameters (D1 allows 100)", async () => {
+      const many: Record<string, string> = {};
+      for (let i = 0; i < 45; i++) many[`docs/bulk/note-${String(i).padStart(2, "0")}.md`] = `# Note ${i}\n`;
+      w.fake.commit(SITE, "main", many);
+      await webhook("push", { ref: "refs/heads/main", installation: { id: 99 }, repository: { node_id: IDS.site } });
+      expect((await paths("max")).filter((p) => p.startsWith("docs/bulk/"))).toHaveLength(45);
+      const removeAll: Record<string, null> = {};
+      for (const p of Object.keys(many)) removeAll[p] = null;
+      w.fake.commit(SITE, "main", removeAll);
+      await webhook("push", { ref: "refs/heads/main", installation: { id: 99 }, repository: { node_id: IDS.site } });
+      expect((await paths("max")).filter((p) => p.startsWith("docs/bulk/"))).toHaveLength(0);
+    });
+
     it("ignores pushes to other branches, and skips the tree listing when the folder did not change", async () => {
       w.fake.commit(SITE, "feature", { "docs/branch.md": "x" });
       await webhook("push", { ref: "refs/heads/feature", installation: { id: 99 }, repository: { node_id: IDS.site } });
