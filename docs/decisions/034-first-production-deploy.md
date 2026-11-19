@@ -1,4 +1,4 @@
-# 034 — First production deploy: workers.dev URL, sending domain pending
+# 034 — First production deploy: workers.dev URL, email from email.crongent.com
 
 Date: 2026-11-19 · Status: accepted
 
@@ -13,8 +13,8 @@ Cloudflare Email Service for sign-in codes.
 - **URL:** `https://gitwork.erik-edf.workers.dev` (owner's choice over a custom subdomain).
 - **Sending domain:** the owner chose a mail subdomain such as `mail.flywheel.so`. Cloudflare Email
   Service requires the domain to use Cloudflare DNS, and `flywheel.so` is on Namecheap DNS with
-  Google Workspace mail. Until a domain on Cloudflare DNS is onboarded, production cannot send
-  sign-in codes, so nobody can sign in. `EMAIL_FROM` stays a placeholder.
+  Google Workspace mail. For now the owner chose `no-reply@email.crongent.com` (already onboarded,
+  on Cloudflare DNS). Move to a Flywheel domain later by changing `EMAIL_FROM` and redeploying.
 - **Private deploy config:** the real D1 id lives in `apps/web/wrangler.production.local.jsonc`
   (git-ignored). `WRANGLER_CONFIG` points `pnpm deploy:cf` at it.
 - **Env guard:** the OpenNext build bakes `apps/web/.env*` into the Worker. The first build did so
@@ -31,6 +31,6 @@ Cloudflare Email Service for sign-in codes.
 
 ## Consequences
 
-- Production is deployed and healthy (`/api/v1/health` reports `d1`), but sign-in waits on the
-  sending domain. Then: set `EMAIL_FROM` in the private config, redeploy, sign in, `/setup`.
+- Production is deployed and healthy (`/api/v1/health` reports `d1`), and sends sign-in codes.
+  Next: sign in, `/setup`, create the GitHub App under FlywheelStudio.
 - Rollback: `wrangler delete gitwork` and `wrangler d1 delete gitwork`.

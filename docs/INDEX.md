@@ -43,7 +43,7 @@
 | 031 | [Linear features out of scope for v1](decisions/031-v1-scope.md) |
 | 032 | [Triage is linked-repo issues not on the board](decisions/032-triage.md) |
 | 033 | [Sync by snapshot ETag, not a change table; no IndexedDB yet](decisions/033-snapshot-etag-sync.md) |
-| 034 | [First production deploy: workers.dev URL, sending domain pending](decisions/034-first-production-deploy.md) |
+| 034 | [First production deploy: workers.dev URL, email from email.crongent.com](decisions/034-first-production-deploy.md) |
 
 ## Features
 
