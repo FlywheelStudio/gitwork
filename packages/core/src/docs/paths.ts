@@ -6,6 +6,8 @@
 export const MAX_PATH_LENGTH = 400;
 /** The whole repo (decision 038). A root is "" or a folder path. */
 export const REPO_ROOT = "";
+/** What a newly linked repo shows (decision 039). */
+export const DEFAULT_DOCS_ROOT = "docs";
 
 // Control characters and backslashes never appear in a path we accept.
 const BAD_CHARS = /[\u0000-\u001f\u007f\\]/;

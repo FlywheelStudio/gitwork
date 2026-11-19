@@ -20,8 +20,8 @@ Last updated: 2026-11-19
 
 ## In Progress
 
-Docs show each repo's whole tree, loaded automatically (decision 038): `feature/docs-repo-tree`, PR
-open, waiting for the owner's merge. Production runs PR #16 (deployed 2026-11-19).
+Docs show each repo's `docs/` folder by default (decision 039): `feature/docs-default-folder`, PR open,
+waiting for the owner's merge. Production runs PR #17 (whole repo by default, deployed 2026-11-19).
 
 First Cloudflare deploy (blocked on the owner's account steps, above).
 

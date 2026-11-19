@@ -2,7 +2,8 @@
 
 Date: 2026-11-19 · Status: Accepted (owner: "I want the repos to have folders. Then I want to see the
 regular structure that's in the repo itself.") · Supersedes the "files outside the folder are not
-shown" part of 011, and the default folder in 035
+shown" part of 011, and the default folder in 035 · **Default superseded by 039** (docs/ again; the
+whole repo stays an option)
 
 ## Context
 Phase 4 showed only each repo's `docs/` folder, and a repo that had not synced yet waited for a

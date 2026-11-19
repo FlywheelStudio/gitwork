@@ -234,7 +234,7 @@ export function VisibilityPanel(props: { workspaceId: string; hideLabel: string;
         <Label htmlFor="hide-folder">Hide docs in this folder</Label>
         <Input id="hide-folder" value={hideFolder} placeholder="e.g. internal" maxLength={200} onChange={(e) => setHideFolder(e.target.value)} />
         <p className="mt-1 text-xs text-muted-foreground">
-          From the top of each repo (or its docs folder, if one is set): &ldquo;internal&rdquo; hides internal/. Read Only members never see these files. Empty hides nothing.
+          Inside each repo&apos;s docs folder: &ldquo;internal&rdquo; hides docs/internal/. Read Only members never see these files. Empty hides nothing.
         </p>
       </div>
       <div className="flex items-center gap-2 text-sm">

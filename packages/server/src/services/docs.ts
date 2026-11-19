@@ -14,7 +14,7 @@ import {
   isMarkdownPath,
   normalizeDocPath,
   normalizeRoot,
-  REPO_ROOT,
+  DEFAULT_DOCS_ROOT,
   relativeToRoot,
   textToBytes,
 } from "@gitwork/core";
@@ -80,7 +80,7 @@ export async function workspaceDocRepos(db: Db, workspaceId: string): Promise<Do
     .where(eq(workspaceRepos.workspaceId, workspaceId));
   return rows.map((r) => {
     const branch = r.docsBranch ?? r.repoDefault ?? "main";
-    const path = normalizeRoot(r.docsPath) ?? REPO_ROOT;
+    const path = normalizeRoot(r.docsPath) ?? DEFAULT_DOCS_ROOT;
     return {
       id: docRootId(r.repoNodeId, branch, path),
       repoNodeId: r.repoNodeId,
@@ -113,7 +113,7 @@ export async function allDocRoots(db: Db, repoNodeId?: string): Promise<DocRootR
   const seen = new Map<string, DocRootRef>();
   for (const r of rows) {
     const branch = r.docsBranch ?? r.repoDefault ?? "main";
-    const path = normalizeRoot(r.docsPath) ?? REPO_ROOT;
+    const path = normalizeRoot(r.docsPath) ?? DEFAULT_DOCS_ROOT;
     const id = docRootId(r.repoNodeId, branch, path);
     seen.set(id, { id, repoNodeId: r.repoNodeId, fullName: r.fullName, branch, path, installationId: r.installationId });
   }

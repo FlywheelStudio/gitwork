@@ -3,6 +3,7 @@
  * boundary: the App's installation token can read every org that installed it, so every choice is
  * re-checked here with the linking user's OWN GitHub token. Nothing from the client is trusted.
  */
+import { DEFAULT_DOCS_ROOT } from "@gitwork/core";
 import {
   type Db,
   ghProjectFields,
@@ -180,7 +181,7 @@ export async function linkWorkspace(deps: GitHubServiceDeps, access: WorkspaceAc
   }
 
   const [previous] = await db.select().from(workspaceGithub).where(eq(workspaceGithub.workspaceId, access.workspace.id));
-  // A repo that stays linked keeps its docs root and branch; a new one shows the whole repo (038).
+  // A repo that stays linked keeps its docs root and branch; a new one shows docs/ (decision 039).
   const keptDocs = new Map(
     (await db.select().from(workspaceRepos).where(eq(workspaceRepos.workspaceId, access.workspace.id))).map((r) => [r.repoNodeId, r]),
   );
@@ -206,7 +207,7 @@ export async function linkWorkspace(deps: GitHubServiceDeps, access: WorkspaceAc
       repoIds.map((repoNodeId) => ({
         workspaceId,
         repoNodeId,
-        docsPath: keptDocs.get(repoNodeId)?.docsPath ?? "",
+        docsPath: keptDocs.get(repoNodeId)?.docsPath ?? DEFAULT_DOCS_ROOT,
         docsBranch: keptDocs.get(repoNodeId)?.docsBranch ?? null,
       })),
     ),

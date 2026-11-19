@@ -43,7 +43,7 @@ describe.each(drivers)("/api/v1 docs on $name", (driver: TestDriver) => {
     deps = { database, auth: { ...auth.auth, api: api2 } as never, email: auth.email, baseURL: BASE_URL, github: { app: APP, client: w.client } };
     for (const user of ["jane", "max", "rita"]) cookies[user] = await signIn(auth.auth, auth.email, `${user}@example.com`);
     expect((await api("PUT", "/github", { as: "jane", body: { installationId: 99, projectNodeId: IDS.board, repoNodeIds: [IDS.site] } })).status).toBe(200);
-    expect((await api("PATCH", "/settings", { as: "jane", body: { hideFolder: "docs/internal" } })).status).toBe(204);
+    expect((await api("PATCH", "/settings", { as: "jane", body: { hideFolder: "internal" } })).status).toBe(204);
   });
 
   it("returns 401 without a session", async () => {

@@ -50,6 +50,13 @@
       "when": 1795121091907,
       "tag": "0006_docs_whole_repo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1795125653695,
+      "tag": "0007_docs_default_folder",
+      "breakpoints": true
     }
   ]
 }
