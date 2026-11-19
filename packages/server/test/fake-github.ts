@@ -1,5 +1,19 @@
 /** An in-memory GitHub for tests: a fetch function that routes the calls the client makes. */
+import { createHash } from "node:crypto";
 import type { IssueJson, ProjectItemNode, RepoJson } from "../src/github/cache";
+
+/** A repo's git data: branches → commit, commits → full file map (path → blob sha). */
+interface FakeGit {
+  branches: Map<string, string>;
+  commits: Map<string, { files: Map<string, string>; message: string }>;
+}
+
+const sha1 = (data: Uint8Array | string) => createHash("sha1").update(data).digest("hex");
+
+/** git's blob id. */
+export function blobSha(bytes: Uint8Array): string {
+  return sha1(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`), Buffer.from(bytes)]));
+}
 
 /** A GitHub user behind an App user token (`ghu_…`): what their own account can see. */
 export interface FakeUser {
@@ -43,6 +57,13 @@ export class FakeGitHub {
   writes: string[] = [];
   /** Clock for created/updated timestamps. */
   clock = Date.parse("2026-06-01T00:00:00Z");
+  /** Git data per repo ("owner/name"). */
+  git = new Map<string, FakeGit>();
+  blobs = new Map<string, Uint8Array>();
+  /** "owner/name#branch": direct commits are refused, as branch protection does. */
+  protectedBranches = new Set<string>();
+  pulls: { fullName: string; number: number; head: string; base: string; title: string; body: string; by: string }[] = [];
+  private trees = new Map<string, { fullName: string; commit: string; path: string }>();
   private tokenInstallation = new Map<string, number>();
   private itemCounter = 0;
 
@@ -180,6 +201,8 @@ export class FakeGitHub {
       this.writes.push(`${this.whoName(who)} PATCH /repos/${fullName}/issues/${existing.number}`);
       return Response.json(issue);
     }
+    const git = this.gitRoute(method, url, init, who);
+    if (git) return git;
     if (path !== "/graphql") return null;
 
     const { query, variables } = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, unknown> };
@@ -225,6 +248,150 @@ export class FakeGitHub {
       this.setField(found.project, found.item, input.fieldId, input.value ?? null);
       this.writes.push(`${this.whoName(who)} ${key}`);
       return Response.json({ data: { [key]: { projectV2Item: this.itemOut(found.item) } } });
+    }
+    return null;
+  }
+
+  private gitOf(fullName: string): FakeGit {
+    let g = this.git.get(fullName);
+    if (!g) {
+      g = { branches: new Map(), commits: new Map() };
+      this.git.set(fullName, g);
+    }
+    return g;
+  }
+
+  /** Commits file changes (null deletes) on a branch, creating it from `from` (default main). */
+  commit(fullName: string, branch: string, changes: Record<string, string | Uint8Array | null>, message = "test commit", from = "main"): string {
+    const g = this.gitOf(fullName);
+    const parent = g.branches.get(branch) ?? g.branches.get(from);
+    const files = new Map(parent ? g.commits.get(parent)!.files : []);
+    for (const [path, content] of Object.entries(changes)) {
+      if (content === null) files.delete(path);
+      else {
+        const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
+        const sha = blobSha(bytes);
+        this.blobs.set(sha, bytes);
+        files.set(path, sha);
+      }
+    }
+    const oid = sha1(`${parent ?? ""}:${[...files].sort().join(",")}:${message}:${this.tick()}`);
+    g.commits.set(oid, { files, message });
+    g.branches.set(branch, oid);
+    return oid;
+  }
+
+  /** The text of a file at a branch head, or null. */
+  fileText(fullName: string, branch: string, path: string): string | null {
+    const g = this.git.get(fullName);
+    const head = g?.branches.get(branch);
+    const sha = head ? g!.commits.get(head)!.files.get(path) : undefined;
+    return sha ? new TextDecoder().decode(this.blobs.get(sha)) : null;
+  }
+
+  headMessage(fullName: string, branch: string): string | null {
+    const g = this.git.get(fullName);
+    const head = g?.branches.get(branch);
+    return head ? g!.commits.get(head)!.message : null;
+  }
+
+  private treeOid(fullName: string, commit: string, path: string): string | null {
+    const files = this.git.get(fullName)!.commits.get(commit)!.files;
+    const under = [...files].filter(([p]) => p.startsWith(`${path}/`)).sort();
+    if (under.length === 0) return null;
+    const oid = sha1(`tree:${under.join(",")}`);
+    this.trees.set(oid, { fullName, commit, path });
+    return oid;
+  }
+
+  private canReadRepo(who: Caller, fullName: string) {
+    if (who.kind === "user") return who.user.repos.has(fullName);
+    if (who.kind === "installation") return this.installationCanReach(who.id, fullName);
+    return false;
+  }
+
+  /** Git REST routes and doc GraphQL. Null = not a git call. */
+  private gitRoute(method: string, url: URL, init: RequestInit | undefined, who: Caller): Response | null {
+    const path = url.pathname;
+    const deny = () => new Response(JSON.stringify({ message: "Not Found" }), { status: 404 });
+    let m: RegExpExecArray | null;
+    if ((m = /^\/repos\/([^/]+\/[^/]+)\/git\/trees\/([0-9a-f]+)$/.exec(path)) && method === "GET") {
+      const t = this.trees.get(m[2]!);
+      if (!t || t.fullName !== m[1] || !this.canReadRepo(who, m[1]!)) return deny();
+      const files = this.git.get(t.fullName)!.commits.get(t.commit)!.files;
+      const tree = [...files]
+        .filter(([p]) => p.startsWith(`${t.path}/`))
+        .map(([p, sha]) => ({ path: p.slice(t.path.length + 1), type: "blob", sha, size: this.blobs.get(sha)!.length }));
+      return Response.json({ sha: m[2], truncated: false, tree });
+    }
+    if ((m = /^\/repos\/([^/]+\/[^/]+)\/git\/blobs\/([0-9a-f]+)$/.exec(path)) && method === "GET") {
+      const bytes = this.blobs.get(m[2]!);
+      if (!bytes || !this.canReadRepo(who, m[1]!)) return deny();
+      // GitHub wraps base64 at 60 columns.
+      const b64 = Buffer.from(bytes).toString("base64").replace(/(.{60})/g, "$1\n");
+      return Response.json({ sha: m[2], size: bytes.length, encoding: "base64", content: b64 });
+    }
+    if ((m = /^\/repos\/([^/]+\/[^/]+)\/git\/refs$/.exec(path)) && method === "POST") {
+      if (!this.canWriteRepo(who, m[1]!)) return deny();
+      const body = JSON.parse(String(init?.body)) as { ref: string; sha: string };
+      const g = this.gitOf(m[1]!);
+      const branch = body.ref.replace(/^refs\/heads\//, "");
+      if (g.branches.has(branch)) return Response.json({ message: "Reference already exists" }, { status: 422 });
+      g.branches.set(branch, body.sha);
+      this.writes.push(`${this.whoName(who)} createRef ${branch}`);
+      return Response.json({ ref: body.ref, object: { sha: body.sha } }, { status: 201 });
+    }
+    if ((m = /^\/repos\/([^/]+\/[^/]+)\/pulls$/.exec(path)) && method === "POST") {
+      if (!this.canWriteRepo(who, m[1]!)) return deny();
+      const body = JSON.parse(String(init?.body)) as { title: string; head: string; base: string; body: string };
+      const number = 100 + this.pulls.length + 1;
+      this.pulls.push({ fullName: m[1]!, number, ...body, by: this.whoName(who) });
+      this.writes.push(`${this.whoName(who)} openPullRequest ${number}`);
+      return Response.json({ number, html_url: `https://github.com/${m[1]}/pull/${number}` }, { status: 201 });
+    }
+    if (path !== "/graphql") return null;
+    const { query, variables } = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (query.includes("query DocHead")) {
+      const fullName = `${variables.owner}/${variables.name}`;
+      if (!this.repos.has(fullName) || !this.canReadRepo(who, fullName)) {
+        return Response.json({ data: { repository: null }, errors: [{ type: "NOT_FOUND", message: "Could not resolve to a Repository" }] });
+      }
+      const g = this.gitOf(fullName);
+      const head = g.branches.get(String(variables.ref).replace(/^refs\/heads\//, "")) ?? null;
+      const expr = String(variables.expr);
+      const colon = expr.indexOf(":");
+      const branchHead = g.branches.get(expr.slice(0, colon));
+      const filePath = expr.slice(colon + 1);
+      let object: { __typename: string; oid: string } | null = null;
+      if (branchHead) {
+        const blob = g.commits.get(branchHead)!.files.get(filePath);
+        const tree = blob ? null : this.treeOid(fullName, branchHead, filePath);
+        object = blob ? { __typename: "Blob", oid: blob } : tree ? { __typename: "Tree", oid: tree } : null;
+      }
+      return Response.json({ data: { repository: { ref: head ? { target: { oid: head } } : null, object } } });
+    }
+    if (query.includes("mutation CommitFiles")) {
+      const input = variables.input as {
+        branch: { repositoryNameWithOwner: string; branchName: string };
+        message: { headline: string; body?: string };
+        fileChanges: { additions: { path: string; contents: string }[]; deletions: { path: string }[] };
+        expectedHeadOid: string;
+      };
+      const fullName = input.branch.repositoryNameWithOwner;
+      const fail = (type: string, message: string) => Response.json({ data: { createCommitOnBranch: null }, errors: [{ type, message }] });
+      if (!this.canWriteRepo(who, fullName)) return fail("FORBIDDEN", "Resource not accessible by integration");
+      if (this.protectedBranches.has(`${fullName}#${input.branch.branchName}`)) return fail("UNPROCESSABLE", "Repository rule violations found");
+      const g = this.gitOf(fullName);
+      const head = g.branches.get(input.branch.branchName);
+      if (!head) return fail("NOT_FOUND", "Branch not found");
+      if (head !== input.expectedHeadOid) return fail("STALE_DATA", `Expected branch to point to "${input.expectedHeadOid}" but it did not`);
+      const changes: Record<string, Uint8Array | null> = {};
+      for (const a of input.fileChanges.additions) changes[a.path] = new Uint8Array(Buffer.from(a.contents, "base64"));
+      for (const d of input.fileChanges.deletions) changes[d.path] = null;
+      const message = [input.message.headline, input.message.body].filter(Boolean).join("\n\n");
+      const oid = this.commit(fullName, input.branch.branchName, changes, message);
+      this.writes.push(`${this.whoName(who)} createCommitOnBranch ${input.branch.branchName}`);
+      return Response.json({ data: { createCommitOnBranch: { commit: { oid, url: `https://github.com/${fullName}/commit/${oid}` } } } });
     }
     return null;
   }

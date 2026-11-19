@@ -71,7 +71,8 @@ function match(pattern: string, path: string): Record<string, string> | null {
 }
 
 const json = (status: number, data: unknown) => Response.json(data, { status });
-const error = (status: number, code: string, message: string) => json(status, { error: { code, message } });
+const error = (status: number, code: string, message: string, data?: Record<string, unknown>) =>
+  json(status, { error: { ...data, code, message } });
 
 /**
  * Cookie-authenticated writes must come from our own origin. Next.js route handlers get no CSRF
@@ -116,7 +117,7 @@ export function createApiHandler(routes: Route[], prefix = "/api/v1") {
         if (result instanceof Response) return result;
         return result === undefined ? new Response(null, { status: 204 }) : json(200, result);
       } catch (e) {
-        if (e instanceof ServiceError) return error(e.status, e.code, e.message);
+        if (e instanceof ServiceError) return error(e.status, e.code, e.message, e.data);
         if (e instanceof GitHubRateLimitError) {
           const res = error(503, "github_rate_limited", "GitHub is rate limiting this instance. Try again shortly.");
           res.headers.set("retry-after", String(Math.max(1, Math.ceil((e.retryAt - Date.now()) / 1000))));
