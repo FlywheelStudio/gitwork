@@ -16,7 +16,8 @@ describe("doc paths", () => {
   it("normalizes a docs folder setting", () => {
     expect(normalizeRoot("/docs/")).toBe("docs");
     expect(normalizeRoot(" handbook/guides ")).toBe("handbook/guides");
-    expect(normalizeRoot("/")).toBeNull();
+    expect(normalizeRoot("/")).toBe("");
+    expect(normalizeRoot("  ")).toBe("");
     expect(normalizeRoot("../x")).toBeNull();
   });
 

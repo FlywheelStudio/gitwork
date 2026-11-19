@@ -26,7 +26,8 @@ async function signIn(page: Page, email: string) {
 async function seedDocs(workspaceId: string) {
   const { db } = openSqlite("file:.data/e2e.sqlite");
   const now = new Date();
-  const root = "R_docs:main:docs";
+  // The whole repo (decision 038): root "" and the repo's own folders.
+  const root = "R_docs:main:";
   await db.batch([
     db
       .insert(ghRepos)
@@ -34,10 +35,10 @@ async function seedDocs(workspaceId: string) {
       .onConflictDoNothing(),
     db.insert(ghProjects).values({ nodeId: "PVT_docs", installationId: 99, ownerLogin: "acme", number: 7, title: "Handbook", url: "https://github.com/orgs/acme/projects/7", syncedAt: now }).onConflictDoNothing(),
     db.insert(workspaceGithub).values({ workspaceId, installationId: 99, projectNodeId: "PVT_docs", linkedAt: now }),
-    db.insert(workspaceRepos).values({ workspaceId, repoNodeId: "R_docs" }),
-    db.insert(ghDocRoots).values({ id: root, repoNodeId: "R_docs", branch: "main", path: "docs", headOid: "c0ffee", treeOid: "7ree", syncedAt: now }),
+    db.insert(workspaceRepos).values({ workspaceId, repoNodeId: "R_docs", docsPath: "" }),
+    db.insert(ghDocRoots).values({ id: root, repoNodeId: "R_docs", branch: "main", path: "", headOid: "c0ffee", treeOid: "7ree", syncedAt: now }),
     db.insert(ghDocFiles).values([
-      { rootId: root, path: "docs/README.md", blobSha: "a".repeat(40), size: README.length },
+      { rootId: root, path: "README.md", blobSha: "a".repeat(40), size: README.length },
       { rootId: root, path: "docs/internal/plan.md", blobSha: "b".repeat(40), size: SECRET.length },
       { rootId: root, path: "docs/guide/setup.md", blobSha: "c".repeat(40), size: 9 },
     ]),
@@ -68,7 +69,7 @@ test("docs: tree, hide folder, rich-text editor, frontmatter panel", async ({ br
 
   // The hide folder, set through the settings form.
   await owner.goto(`/w/${workspaceId}/settings`);
-  await owner.getByLabel("Hide docs in this folder").fill("internal");
+  await owner.getByLabel("Hide docs in this folder").fill("docs/internal");
   const saved = owner.waitForResponse((r) => r.url().endsWith(`/workspaces/${workspaceId}/settings`) && r.status() === 204);
   await owner.getByRole("button", { name: "Save", exact: true }).click();
   await saved;
@@ -88,9 +89,13 @@ test("docs: tree, hide folder, rich-text editor, frontmatter panel", async ({ br
   // Owner: the whole tree, from the sidebar's Docs link.
   await owner.goto(`/w/${workspaceId}`);
   await owner.getByRole("link", { name: "Docs", exact: true }).click();
+  // The repo is the top folder, with the repo's own folders inside.
   const tree = owner.getByRole("complementary", { name: "Docs" });
+  await expect(tree.getByRole("button", { name: "handbook" })).toBeVisible();
   await expect(tree.getByRole("link", { name: "README" })).toBeVisible();
+  await expect(tree.getByRole("button", { name: "docs" })).toBeVisible();
   await expect(tree.getByRole("button", { name: "internal" })).toBeVisible();
+  await expect(tree.getByRole("button", { name: "guide" })).toBeVisible();
 
   // Read Only: no hidden folder in the tree, the API, or by URL.
   await reader.goto(`/w/${workspaceId}/docs`);
@@ -99,11 +104,11 @@ test("docs: tree, hide folder, rich-text editor, frontmatter panel", async ({ br
   const list = await (await reader.request.get(`/api/v1/workspaces/${workspaceId}/docs`)).text();
   expect(list).not.toContain("internal");
   expect((await reader.request.get(`/api/v1/workspaces/${workspaceId}/docs/file?repo=R_docs&path=docs/internal/plan.md`)).status()).toBe(404);
-  const r = await reader.request.get(`/api/v1/workspaces/${workspaceId}/docs/file?repo=R_docs&path=docs/README.md`);
+  const r = await reader.request.get(`/api/v1/workspaces/${workspaceId}/docs/file?repo=R_docs&path=README.md`);
   expect(await r.json()).toMatchObject({ doc: { text: README, editable: false } });
 
   // Read Only sees the doc rendered, with no toolbar or save.
-  await reader.getByRole("link", { name: "README" }).click();
+  await reader.getByRole("complementary", { name: "Docs" }).getByRole("link", { name: "README" }).click();
   await expect(reader.locator(".cm-lp-h1")).toHaveText("Handbook");
   await expect(reader.getByRole("toolbar", { name: "Formatting" })).toHaveCount(0);
   await expect(reader.getByRole("button", { name: "Save" })).toHaveCount(0);

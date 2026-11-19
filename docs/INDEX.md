@@ -46,6 +46,7 @@
 | 035 | [Docs cache: tree by folder oid, text by blob sha](decisions/035-docs-cache.md) |
 | 036 | [Doc writes: one signed commit, conflict check, pull request fallback](decisions/036-doc-writes.md) |
 | 037 | ["Rich text" is a live preview over the source, not WYSIWYG](decisions/037-rich-text-view.md) |
+| 038 | [Docs show each repo's whole tree, loaded automatically](decisions/038-whole-repo-tree.md) |
 
 ## Features
 
@@ -60,4 +61,4 @@
 | [features/speed.md](features/speed.md) | Client store, /sync with ETag, optimistic edits, side panel, measured budgets. |
 | [features/keyboard.md](features/keyboard.md) | Shared keymap, command menu, pickers, bulk edit with undo, shortcut sheet. |
 | [features/shell.md](features/shell.md) | Workspace layout and sidebar, grouped virtualized list, dense cards, write-path line, dark mode. |
-| [features/docs.md](features/docs.md) | Doc tree, rich-text editor, frontmatter panel, images, commits, PR fallback, conflicts, presence. |
+| [features/docs.md](features/docs.md) | Repo trees (whole repo by default), rich-text editor, frontmatter panel, images, commits, PR fallback, conflicts, presence. |

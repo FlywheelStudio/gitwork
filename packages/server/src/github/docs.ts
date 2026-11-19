@@ -7,14 +7,14 @@
  * - Every commit is `createCommitOnBranch`: GitHub signs it, it takes several files at once, and
  *   `expectedHeadOid` refuses to commit on top of a head we did not see.
  */
-import { bytesToText, decodeBase64, MAX_EDITABLE_BYTES, normalizeDocPath } from "@gitwork/core";
+import { bytesToText, decodeBase64, joinRoot, MAX_EDITABLE_BYTES, normalizeDocPath } from "@gitwork/core";
 import { type Db, ghDocBlobs, ghDocFiles, ghDocRoots } from "@gitwork/db";
 import { eq } from "drizzle-orm";
 import { deleteDocFiles, putDocBlob, touchDocRoot, upsertDocFiles, upsertDocRoot } from "./cache";
 import type { GitHubAuth, GitHubClient } from "./client";
 
 /** A docs folder with more files than this is listed in part (`truncated`). */
-export const MAX_DOC_FILES = 2000;
+export const MAX_DOC_FILES = 5000;
 /** Files above this are not proxied; the tree links to GitHub instead. */
 export const MAX_RAW_BYTES = 25_000_000;
 
@@ -89,7 +89,7 @@ export async function planDocRootSync(db: Db, client: GitHubClient, root: DocRoo
     const tree = await client.rest<TreeJson>("GET", `/repos/${root.fullName}/git/trees/${treeOid}?recursive=1`, auth);
     for (const entry of tree.tree) {
       if (entry.type !== "blob") continue;
-      const path = normalizeDocPath(`${root.path}/${entry.path}`);
+      const path = normalizeDocPath(joinRoot(root.path, entry.path));
       if (!path) continue; // a name we would refuse to write is not shown either
       files.push({ path, blobSha: entry.sha, size: entry.size ?? 0 });
     }

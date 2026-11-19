@@ -14,6 +14,7 @@ import {
   isMarkdownPath,
   normalizeDocPath,
   normalizeRoot,
+  REPO_ROOT,
   relativeToRoot,
   textToBytes,
 } from "@gitwork/core";
@@ -79,7 +80,7 @@ export async function workspaceDocRepos(db: Db, workspaceId: string): Promise<Do
     .where(eq(workspaceRepos.workspaceId, workspaceId));
   return rows.map((r) => {
     const branch = r.docsBranch ?? r.repoDefault ?? "main";
-    const path = normalizeRoot(r.docsPath) ?? "docs";
+    const path = normalizeRoot(r.docsPath) ?? REPO_ROOT;
     return {
       id: docRootId(r.repoNodeId, branch, path),
       repoNodeId: r.repoNodeId,
@@ -112,7 +113,7 @@ export async function allDocRoots(db: Db, repoNodeId?: string): Promise<DocRootR
   const seen = new Map<string, DocRootRef>();
   for (const r of rows) {
     const branch = r.docsBranch ?? r.repoDefault ?? "main";
-    const path = normalizeRoot(r.docsPath) ?? "docs";
+    const path = normalizeRoot(r.docsPath) ?? REPO_ROOT;
     const id = docRootId(r.repoNodeId, branch, path);
     seen.set(id, { id, repoNodeId: r.repoNodeId, fullName: r.fullName, branch, path, installationId: r.installationId });
   }
@@ -276,7 +277,7 @@ export interface DocView {
   path: string;
   /** Relative to the docs folder, for display. */
   name: string;
-  /** The docs folder: uploaded images go to `<root>/assets/`. */
+  /** The docs root ("" = the whole repo, decision 038). */
   root: string;
   branch: string;
   /** The blob sha the text came from: send it back with a save. */
@@ -734,7 +735,7 @@ export async function setDocsConfig(
   const set: { docsPath?: string; docsBranch?: string | null } = {};
   if (input.docsPath !== undefined) {
     const root = normalizeRoot(input.docsPath);
-    if (!root) throw badRequest("Enter a folder path such as docs or handbook/guides.");
+    if (root === null) throw badRequest("Enter a folder path such as docs, or leave it empty for the whole repo.");
     set.docsPath = root;
   }
   if (input.docsBranch !== undefined) {
@@ -753,9 +754,15 @@ export async function setDocsConfig(
   await pruneDocCache(deps.db);
 }
 
-/** Members may ask for a fresh read of the docs folders (the tree shows "not loaded yet"). */
+/**
+ * Loads repos that were never synced. The tree calls it on its own when it finds one, so docs
+ * load without a button (decision 038). Synced roots are skipped: no one can force extra calls.
+ */
 export async function refreshDocs(deps: Pick<GitHubServiceDeps, "db" | "client">, access: WorkspaceAccess, now = new Date()) {
-  requireCapability(access, "docs.write");
+  requireCapability(access, "workspace.view");
   const repos = (await workspaceDocRepos(deps.db, access.workspace.id)).filter((r) => r.available);
-  return syncDocRoots(deps, repos, now);
+  const synced = new Set(
+    (await deps.db.select({ id: ghDocRoots.id, syncedAt: ghDocRoots.syncedAt }).from(ghDocRoots)).filter((r) => r.syncedAt).map((r) => r.id),
+  );
+  return syncDocRoots(deps, repos.filter((r) => !synced.has(r.id)), now);
 }

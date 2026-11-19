@@ -409,7 +409,10 @@ export const workspaceRepos = sqliteTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     repoNodeId: text("repo_node_id").notNull(),
-    /** The repo's docs folder for this workspace (decision 011). */
+    /**
+     * The repo's docs root for this workspace: "" = the whole repo (decision 038). Linking writes
+     * "" explicitly; the SQL default stays "docs" because SQLite cannot change a default in place.
+     */
     docsPath: text("docs_path").notNull().default("docs"),
     /** The branch docs are read from and committed to; null = the repo's default branch. */
     docsBranch: text("docs_branch"),

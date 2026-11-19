@@ -25,8 +25,8 @@ export async function updateWorkspaceSettings(db: Db, access: WorkspaceAccess, i
   }
   if (input.hideFolder !== undefined) {
     const raw = input.hideFolder?.trim() ?? "";
-    // Relative to each repo's docs folder (decision 012).
-    const folder = raw ? normalizeRoot(raw) : null;
+    // Relative to each repo's docs root (decisions 012, 038).
+    const folder = raw ? normalizeRoot(raw) || null : null;
     if (raw && !folder) throw badRequest("Enter a folder inside the docs folder, such as internal.");
     set.hideFolder = folder;
   }

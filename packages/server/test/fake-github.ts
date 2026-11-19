@@ -297,7 +297,7 @@ export class FakeGitHub {
 
   private treeOid(fullName: string, commit: string, path: string): string | null {
     const files = this.git.get(fullName)!.commits.get(commit)!.files;
-    const under = [...files].filter(([p]) => p.startsWith(`${path}/`)).sort();
+    const under = [...files].filter(([p]) => path === "" || p.startsWith(`${path}/`)).sort();
     if (under.length === 0) return null;
     const oid = sha1(`tree:${under.join(",")}`);
     this.trees.set(oid, { fullName, commit, path });
@@ -320,8 +320,8 @@ export class FakeGitHub {
       if (!t || t.fullName !== m[1] || !this.canReadRepo(who, m[1]!)) return deny();
       const files = this.git.get(t.fullName)!.commits.get(t.commit)!.files;
       const tree = [...files]
-        .filter(([p]) => p.startsWith(`${t.path}/`))
-        .map(([p, sha]) => ({ path: p.slice(t.path.length + 1), type: "blob", sha, size: this.blobs.get(sha)!.length }));
+        .filter(([p]) => t.path === "" || p.startsWith(`${t.path}/`))
+        .map(([p, sha]) => ({ path: t.path === "" ? p : p.slice(t.path.length + 1), type: "blob", sha, size: this.blobs.get(sha)!.length }));
       return Response.json({ sha: m[2], truncated: false, tree });
     }
     if ((m = /^\/repos\/([^/]+\/[^/]+)\/git\/blobs\/([0-9a-f]+)$/.exec(path)) && method === "GET") {

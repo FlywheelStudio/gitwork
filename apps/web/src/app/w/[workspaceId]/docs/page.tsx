@@ -21,8 +21,9 @@ export default async function DocsIndexPage({ params }: PageProps<"/w/[workspace
       </Card>
     );
   }
-  // The first doc of the first repo, so the page is never empty when docs exist.
-  const first = docs.repos.flatMap((r) => r.files.filter((f) => f.kind === "doc").map((f) => ({ repo: r.repoNodeId, path: f.path })))[0];
+  // A README at the top of a repo first, else the first doc, so the page is never empty.
+  const all = docs.repos.flatMap((r) => r.files.filter((f) => f.kind === "doc").map((f) => ({ repo: r.repoNodeId, path: f.path, root: r.root })));
+  const first = all.find((d) => /^readme\.(md|markdown)$/i.test(d.root ? d.path.slice(d.root.length + 1) : d.path)) ?? all[0];
   return (
     <Card className="mx-auto max-w-2xl space-y-2">
       <h1 className="text-lg font-semibold">Docs</h1>
