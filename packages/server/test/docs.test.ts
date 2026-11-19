@@ -73,8 +73,7 @@ describe.each(drivers)("docs on $name", (driver: TestDriver) => {
       "docs/bad.md": new Uint8Array([0x23, 0x20, 0xff, 0x0a]),
     });
     await linkWorkspace(w.deps, await w.access("jane"), { installationId: 99, projectNodeId: IDS.board, repoNodeIds: [IDS.site] });
-    // These tests cover a repo narrowed to its docs/ folder; "whole repo" below covers the default.
-    await setDocsConfig(w.deps, await w.access("jane"), { repoNodeId: IDS.site, docsPath: "docs" });
+    // A newly linked repo shows docs/ (decision 039); "whole repo" below covers the option.
     await updateWorkspaceSettings(w.db, await w.access("owner"), { hideFolder: "Internal" });
     w.fake.writes = [];
   });
@@ -376,7 +375,7 @@ describe.each(drivers)("docs on $name", (driver: TestDriver) => {
     });
   });
 
-  describe("whole repo (the default, decision 038)", () => {
+  describe("whole repo (an option per repo, decision 038)", () => {
     beforeEach(async () => {
       await setDocsConfig(w.deps, await w.access("jane"), { repoNodeId: IDS.site, docsPath: "" });
       await updateWorkspaceSettings(w.db, await w.access("owner"), { hideFolder: "docs/internal" });
@@ -403,13 +402,12 @@ describe.each(drivers)("docs on $name", (driver: TestDriver) => {
       await rejects(createDoc(writer("max"), await w.access("max"), { repoNodeId: IDS.site, path: ".git/x.md" }), 404);
     });
 
-    it("keeps a repo's docs settings when the workspace links again, and new repos get the whole repo", async () => {
-      await setDocsConfig(w.deps, await w.access("jane"), { repoNodeId: IDS.site, docsPath: "docs", docsBranch: "main" });
+    it("keeps a repo's docs settings when the workspace links again, and new repos get docs/", async () => {
       await linkWorkspace(w.deps, await w.access("jane"), { installationId: 99, projectNodeId: IDS.board, repoNodeIds: [IDS.site, IDS.internal] });
       const repos = await listDocs(w.db, await w.access("max"));
       expect(repos.repos.map((r) => [r.fullName, r.root]).sort()).toEqual([
-        ["acme/internal", ""],
-        ["acme/site", "docs"],
+        ["acme/internal", "docs"],
+        ["acme/site", ""],
       ]);
     });
   });
