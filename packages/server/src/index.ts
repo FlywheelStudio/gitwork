@@ -63,3 +63,12 @@ export {
 } from "./github/setup";
 export { handleGitHubWebhook } from "./github/webhooks";
 export { type RequestDepsInput, createRequestDeps } from "./deps";
+export {
+  type DocFileView,
+  type DocRepoView,
+  type DocView,
+  type Editor,
+  type WriteResult,
+  listDocs,
+  workspaceDocRepos,
+} from "./services/docs";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { imageType, isUnderRoot, normalizeDocPath, normalizeRoot, resolveRelative, safeFileName } from "./paths";
+import { imageType, isUnderRoot, normalizeDocPath, normalizeRoot, relativeLink, resolveRelative, safeFileName } from "./paths";
 import { docVisibilityContext, isDocVisible } from "../visibility";
 
 describe("doc paths", () => {
@@ -36,6 +36,16 @@ describe("doc paths", () => {
     expect(resolveRelative("docs/a.md", "#heading")).toBeNull();
     expect(resolveRelative("docs/a.md", "javascript:alert(1)")).toBeNull();
     expect(resolveRelative("docs/a.md", "%E0%A4%A")).toBeNull();
+  });
+
+  it("makes relative links that resolve back to the same file", () => {
+    expect(relativeLink("docs/guide/a.md", "docs/assets/x.png")).toBe("../assets/x.png");
+    expect(relativeLink("docs/a.md", "docs/assets/my shot.png")).toBe("assets/my%20shot.png");
+    expect(relativeLink("docs/a.md", "docs/x (1).png")).toBe("x%20%281%29.png");
+    expect(relativeLink("docs/a/b/c.md", "docs/a/b/d.png")).toBe("d.png");
+    for (const [from, to] of [["docs/guide/a.md", "docs/assets/x (1).png"], ["docs/a.md", "docs/a/b.png"], ["docs/x/y/z.md", "docs/q.png"]] as const) {
+      expect(resolveRelative(from, relativeLink(from, to))).toBe(to);
+    }
   });
 
   it("knows image types and makes safe upload names", () => {

@@ -95,3 +95,18 @@ export function safeFileName(input: string): string {
   const ext = dot > 0 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
   return `${base || "image"}${ext ? `.${ext}` : ""}`;
 }
+
+/** A relative link from one doc to another file ("docs/guide/a.md" → "docs/assets/x.png" = "../assets/x.png"). */
+export function relativeLink(fromDocPath: string, toPath: string): string {
+  const from = fromDocPath.split("/").slice(0, -1);
+  const to = toPath.split("/");
+  let common = 0;
+  while (common < from.length && common < to.length - 1 && from[common] === to[common]) common++;
+  const up = from.length - common;
+  const rel = [...Array<string>(up).fill(".."), ...to.slice(common)].join("/");
+  // Spaces and parentheses would end a markdown link early.
+  return rel
+    .split("/")
+    .map((s) => (s === ".." ? s : encodeURIComponent(s).replace(/[()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)))
+    .join("/");
+}

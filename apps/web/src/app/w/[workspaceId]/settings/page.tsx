@@ -1,11 +1,11 @@
 import { authorize, can } from "@gitwork/core";
-import { getWorkspaceLink, resolveMapping } from "@gitwork/server";
+import { getWorkspaceLink, resolveMapping, workspaceDocRepos } from "@gitwork/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/kit";
 import { getDeps } from "@/server/context";
 import { requireWorkspacePage } from "@/server/pages";
-import { FieldMappingPanel, GitHubLinkPanel, VisibilityPanel } from "./settings-panels";
+import { DocFoldersPanel, DocReviewPanel, FieldMappingPanel, GitHubLinkPanel, VisibilityPanel } from "./settings-panels";
 
 export default async function WorkspaceSettingsPage({ params }: PageProps<"/w/[workspaceId]/settings">) {
   const { workspaceId } = await params;
@@ -16,6 +16,7 @@ export default async function WorkspaceSettingsPage({ params }: PageProps<"/w/[w
   const { github: app } = await getDeps();
   const data = await getWorkspaceLink(db, workspaceId);
   const fields = data?.fields.map((f) => ({ id: f.nodeId, name: f.name, dataType: f.dataType })) ?? [];
+  const docRepos = data ? await workspaceDocRepos(db, workspaceId) : [];
 
   return (
     <>
@@ -56,14 +57,30 @@ export default async function WorkspaceSettingsPage({ params }: PageProps<"/w/[w
             <FieldMappingPanel workspaceId={workspaceId} fields={fields} mapping={resolveMapping(fields, data.link)} />
           </Card>
         )}
+        {data && github.ok && docRepos.length > 0 && (
+          <Card className="space-y-4">
+            <h2 className="font-medium">Docs folders</h2>
+            <DocFoldersPanel
+              workspaceId={workspaceId}
+              repos={docRepos.map((r) => ({ nodeId: r.repoNodeId, fullName: r.fullName, path: r.path, branch: r.branch, defaultBranch: r.defaultBranch }))}
+            />
+          </Card>
+        )}
         {canSettings && (
           <Card className="space-y-4">
             <h2 className="font-medium">What Read Only members see</h2>
             <VisibilityPanel
               workspaceId={workspaceId}
               hideLabel={access.workspace.hideLabel ?? ""}
+              hideFolder={access.workspace.hideFolder ?? ""}
               showDraftsToReadOnly={access.settings.showDraftsToReadOnly}
             />
+          </Card>
+        )}
+        {canSettings && (
+          <Card className="space-y-4">
+            <h2 className="font-medium">Doc edits</h2>
+            <DocReviewPanel workspaceId={workspaceId} reviewBotDocEdits={access.workspace.reviewBotDocEdits} />
           </Card>
         )}
       </div>

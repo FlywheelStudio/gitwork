@@ -36,6 +36,7 @@ import {
   workspaceDocRepos,
 } from "../services/docs";
 import { type RouteContext, createApiHandler, route } from "./router";
+import type { GitHubClient } from "../github/client";
 
 /** GitHub-backed services need the App; before /setup there is none. */
 function githubDeps(ctx: RouteContext) {
@@ -46,6 +47,19 @@ function githubDeps(ctx: RouteContext) {
 function taskDeps(ctx: RouteContext) {
   const user = ctx.session!.user;
   return { ...githubDeps(ctx), displayName: user.name?.trim() || user.email };
+}
+
+/** Calls GitHub only when it must: without the App, cached docs still open. */
+const NO_GITHUB = new Proxy({} as GitHubClient, {
+  get() {
+    return () => {
+      throw conflict("github_not_setup", "The GitHub App is not set up on this instance yet.");
+    };
+  },
+});
+
+function readDeps(ctx: RouteContext) {
+  return { db: ctx.deps.database.db, client: ctx.deps.github?.client ?? NO_GITHUB, auth: ctx.deps.auth };
 }
 
 function docDeps(ctx: RouteContext) {
@@ -224,7 +238,7 @@ export const routes = [
     async handler(ctx) {
       const access = await requireWorkspaceAccess(ctx.deps.database.db, ctx.session!.user.id, ctx.params.workspaceId!);
       const q = fileQuery(ctx.request);
-      return { doc: await getDoc(githubDeps(ctx), access, q.repo, q.path) };
+      return { doc: await getDoc(readDeps(ctx), access, q.repo, q.path) };
     },
   }),
 

@@ -241,7 +241,7 @@ async function resolveFile(db: Db, access: WorkspaceAccess, repoNodeId: string, 
   return { repo, path };
 }
 
-async function pendingFor(db: Db, repo: DocRepo, path: string) {
+async function pendingFor(db: Db, repo: DocRepo, path: string): Promise<typeof docPendingPrs.$inferSelect | null> {
   const [row] = await db
     .select()
     .from(docPendingPrs)
@@ -276,6 +276,8 @@ export interface DocView {
   path: string;
   /** Relative to the docs folder, for display. */
   name: string;
+  /** The docs folder: uploaded images go to `<root>/assets/`. */
+  root: string;
   branch: string;
   /** The blob sha the text came from: send it back with a save. */
   sha: string;
@@ -318,6 +320,7 @@ export async function getDoc(deps: GitHubServiceDeps, access: WorkspaceAccess, r
     fullName: repo.fullName,
     path,
     name: relativeToRoot(path, repo.path),
+    root: repo.path,
     branch: pending?.headBranch ?? repo.branch,
     sha,
     text,

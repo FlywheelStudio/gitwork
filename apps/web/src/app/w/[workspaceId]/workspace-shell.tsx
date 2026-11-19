@@ -54,6 +54,7 @@ function Sidebar({ workspaceId, name, role, email }: { workspaceId: string; name
   const base = `/w/${workspaceId}`;
   const links = [
     { href: base, label: "Tasks", active: pathname === base || pathname.startsWith(`${base}/tasks`) },
+    { href: `${base}/docs`, label: "Docs", active: pathname.startsWith(`${base}/docs`) },
     { href: `${base}/members`, label: "Members", active: pathname === `${base}/members` },
     ...(role === "owner" || role === "admin" ? [{ href: `${base}/settings`, label: "Settings", active: pathname === `${base}/settings` }] : []),
   ];
