@@ -114,6 +114,9 @@ them and prunes the ones no workspace uses (features/tasks.md).
 - **Workers query limits are unverified.** Cloudflare's docs do not say whether a D1 `batch()`
   counts as one query or one per statement toward the per-invocation limit (50 Free / 1000 Paid).
   The defaults assume the Paid plan; on Free, lower `RECONCILE_MAX_PAGES`. Measure on a real deploy.
+- **GitHub refuses account permissions in a manifest.** `email_addresses` made GitHub reject the
+  whole manifest ("Default permission records resource is not included in the list"). The admin
+  adds Email addresses: Read in the App settings after creation (self-host README).
 - **Never tested against real GitHub.** The manifest flow, App availability of `projects_v2*`
   webhooks, and real payload shapes are covered only by docs and the fake. See STATE.
 - **Two concurrent refreshes of one user token can lock the user out** (GitHub invalidates the old

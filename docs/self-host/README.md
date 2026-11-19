@@ -103,6 +103,9 @@ and `GITWORK_MIGRATIONS_DIR` pointing at `packages/db/migrations`. One instance 
 2. **/setup → Create GitHub App.** GitHub asks you to confirm, then returns you to Gitwork. The App
    is private to your organization. Its webhook URL is `BETTER_AUTH_URL/api/github/webhook`.
 3. Install the App on your organization (an org owner must approve). Choose the repos.
+   Then, in the App's settings on GitHub (Permissions & events → Account permissions), set
+   **Email addresses** to Read-only. GitHub refuses that permission in the setup manifest, and
+   without it, people whose GitHub email is private cannot link their GitHub account.
 4. Choose who may create accounts (setup step 3). Invites always work.
 5. Create a workspace, link your GitHub account (Settings), then link a board and repos.
 6. **/setup/health** shows the configuration, the GitHub App, the last webhook, and the last

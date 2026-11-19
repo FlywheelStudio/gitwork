@@ -43,8 +43,9 @@ export function buildManifest(baseURL: string, options: { name: string; public: 
       metadata: "read",
       organization_projects: "write",
       members: "read",
-      // Account permission: lets the GitHub link read a private profile email.
-      email_addresses: "read",
+      // Not email_addresses: GitHub rejects it in a manifest ("Default permission records resource
+      // is not included in the list", verified 2026-11-19). It is an account permission; an admin
+      // adds it in the App's settings after creation (docs/self-host/README.md).
     },
     default_events: [
       "issues",

@@ -48,12 +48,16 @@ describe.each(drivers)("instance setup on $name", (driver: TestDriver) => {
     ]);
   });
 
-  it("builds an org manifest with the webhook, callback, and email permission", async () => {
+  it("builds an org manifest with the webhook and callback, and only permissions GitHub accepts", async () => {
     const { action, manifest } = await start();
     expect(action).toMatch(/^https:\/\/github\.com\/organizations\/acme\/settings\/apps\/new\?state=/);
     expect(manifest.hook_attributes.url).toBe(`${BASE}/api/github/webhook`);
     expect(manifest.callback_urls).toEqual([`${BASE}/api/auth/callback/github`]);
-    expect(manifest.default_permissions).toMatchObject({ organization_projects: "write", email_addresses: "read" });
+    expect(manifest.default_permissions).toMatchObject({ organization_projects: "write" });
+    // GitHub rejects the whole manifest when it names an account permission such as email_addresses.
+    for (const key of ["email_addresses", "emails", "followers", "gpg_keys", "profile"]) {
+      expect(manifest.default_permissions).not.toHaveProperty(key);
+    }
     expect(manifest.default_events).not.toContain("installation");
     expect(manifest.public).toBe(false);
   });
