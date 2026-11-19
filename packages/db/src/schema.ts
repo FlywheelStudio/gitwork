@@ -138,6 +138,10 @@ export const workspaces = sqliteTable(
     showDraftsToReadOnly: integer("show_drafts_to_read_only", { mode: "boolean" }).notNull().default(false),
     /** Issues with this label are hidden from Read Only (decision 012). Compared without case. */
     hideLabel: text("hide_label"),
+    /** Files under this folder (relative to each docs folder) are hidden from Read Only (012). */
+    hideFolder: text("hide_folder"),
+    /** Decision 008 review mode: App doc writes open a pull request instead of a commit. */
+    reviewBotDocEdits: integer("review_bot_doc_edits", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [index("workspaces_account_id_idx").on(t.accountId)],
@@ -405,6 +409,10 @@ export const workspaceRepos = sqliteTable(
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     repoNodeId: text("repo_node_id").notNull(),
+    /** The repo's docs folder for this workspace (decision 011). */
+    docsPath: text("docs_path").notNull().default("docs"),
+    /** The branch docs are read from and committed to; null = the repo's default branch. */
+    docsBranch: text("docs_branch"),
   },
   (t) => [primaryKey({ columns: [t.workspaceId, t.repoNodeId] }), index("workspace_repos_repo_idx").on(t.repoNodeId)],
 );
@@ -446,4 +454,84 @@ export const auditLog = sqliteTable(
     index("audit_log_target_idx").on(t.target),
     check("audit_log_via_ck", sql`${t.via} IN ('user', 'app', 'local')`),
   ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Docs (Phase 4, decisions 011, 035, 036). The tree and text are a cache of GitHub, like gh_*.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * One docs folder on one branch of one repo. Id: "<repo node id>:<branch>:<path>" (git branch names
+ * cannot contain ":"). `treeOid` is null when the folder does not exist on the branch.
+ */
+export const ghDocRoots = sqliteTable(
+  "gh_doc_roots",
+  {
+    id: text("id").primaryKey(),
+    repoNodeId: text("repo_node_id").notNull(),
+    branch: text("branch").notNull(),
+    path: text("path").notNull(),
+    headOid: text("head_oid"),
+    treeOid: text("tree_oid"),
+    /** GitHub cut the tree listing short, or it passed the file cap: the tree is incomplete. */
+    truncated: integer("truncated", { mode: "boolean" }).notNull().default(false),
+    syncedAt: integer("synced_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("gh_doc_roots_repo_idx").on(t.repoNodeId, t.branch)],
+);
+
+/** Files under a docs folder at the root's `headOid`. Paths are repo-relative. */
+export const ghDocFiles = sqliteTable(
+  "gh_doc_files",
+  {
+    rootId: text("root_id").notNull(),
+    path: text("path").notNull(),
+    blobSha: text("blob_sha").notNull(),
+    size: integer("size").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.rootId, t.path] }), index("gh_doc_files_blob_idx").on(t.blobSha)],
+);
+
+/** Doc text by git blob sha. Content-addressed: a row never changes, unused rows are pruned. */
+export const ghDocBlobs = sqliteTable("gh_doc_blobs", {
+  sha: text("sha").primaryKey(),
+  text: text("text").notNull(),
+  size: integer("size").notNull(),
+  fetchedAt: integer("fetched_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+/**
+ * A doc save that became a pull request (branch protection or review mode). While it is open,
+ * saves of that doc go to the PR branch. The `pull_request` webhook removes the row on close.
+ */
+export const docPendingPrs = sqliteTable(
+  "doc_pending_prs",
+  {
+    repoNodeId: text("repo_node_id").notNull(),
+    baseBranch: text("base_branch").notNull(),
+    path: text("path").notNull(),
+    headBranch: text("head_branch").notNull(),
+    prNumber: integer("pr_number").notNull(),
+    prUrl: text("pr_url").notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.repoNodeId, t.baseBranch, t.path] }), index("doc_pending_prs_pr_idx").on(t.repoNodeId, t.prNumber)],
+);
+
+/** "Jane is editing" (spec: presence is a heartbeat row). Rows past `expiresAt` are ignored. */
+export const docPresence = sqliteTable(
+  "doc_presence",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    repoNodeId: text("repo_node_id").notNull(),
+    path: text("path").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.repoNodeId, t.path, t.userId] })],
 );
