@@ -1,16 +1,16 @@
 # State
 
-Last updated: 2026-11-10
+Last updated: 2026-11-19
 
 ## Resume here
 
 - PRs #5–#11 are on `main` (2026-11-10). #9 and #10 landed through #11. Plan: `docs/roadmap.md`,
   decisions 023–033.
-- **Next: first deploy to Cloudflare** (owner approved 2026-11-10: Cloudflare for hosting and
-  email; instance admins `erikgoins@gmail.com`, `erik@flywheel.so`). Steps in
-  `docs/self-host/README.md` → Cloudflare. Waiting on the owner for: `wrangler login`, the Workers
-  Paid plan, and a domain onboarded to Cloudflare Email Service. The deploy doubles as the live
-  GitHub check: a public URL, no tunnel.
+- **Production is deployed** (2026-11-19, decision 034): `https://gitwork.erik-edf.workers.dev`,
+  D1 `gitwork`, email from `no-reply@email.crongent.com`. Deploy with
+  `WRANGLER_CONFIG=wrangler.production.local.jsonc pnpm deploy:cf` and no `apps/web/.env*` present.
+  **Next: the live GitHub check.** The owner signs in, opens `/setup`, creates the GitHub App under
+  FlywheelStudio, and installs it on one test repo.
 - **iCloud copies files in this repo**, even inside `.git`. Fix: turn off iCloud Desktop & Documents
   sync, or move the whole `~/Documents/Flywheel` tree (not only `gitwork`: CLAUDE.md discovery and
   the `../../conventions` import depend on it) and copy the Claude memory folder to the new path key.
@@ -20,7 +20,7 @@ Last updated: 2026-11-10
 
 ## In Progress
 
-First Cloudflare deploy (blocked on the owner's account steps, above).
+Live GitHub check on production (blocked on the sending domain, above).
 
 ## Completed
 
