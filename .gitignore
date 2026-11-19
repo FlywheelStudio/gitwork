@@ -31,3 +31,6 @@ CLAUDE.local.md
 skills-lock.json
 
 .DS_Store
+
+# Private deploy config with real resource IDs (see docs/self-host/README.md)
+*.local.jsonc

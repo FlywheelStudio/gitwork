@@ -85,6 +85,16 @@ pnpm exec wrangler secret put INSTANCE_ADMIN_EMAILS
 cd ../.. && pnpm deploy:cf                           # build, migrate D1, deploy
 ```
 
+**Build from a checkout without `apps/web/.env*` files** (`.env.example` is fine). The OpenNext build
+copies every `.env` value into the Worker, so a development `.env.local` would ship its secret, its
+URL, and `EMAIL_TRANSPORT=console`. `pnpm deploy:cf` refuses to deploy such a bundle
+(`scripts/check-worker-env.sh`). Move the file aside for the build and put it back after.
+
+To keep your D1 id out of a public fork, copy `wrangler.jsonc` to `wrangler.production.local.jsonc`
+(git ignores `*.local.jsonc`), put the real id there, and deploy with
+`WRANGLER_CONFIG=wrangler.production.local.jsonc pnpm deploy:cf`. Pass the same file to
+`wrangler secret put -c` and `wrangler tail -c`.
+
 `pnpm deploy:cf` runs D1 migrations before each deploy, so upgrades are `git pull` and
 `pnpm deploy:cf`. D1 keeps 30 days of point-in-time history (Time Travel) for restores. Reconcile
 runs from the Cron Trigger in `wrangler.jsonc`.

@@ -13,7 +13,7 @@
     "predev": "pnpm db:migrate",
     "db:migrate": "tsx ../../packages/db/src/migrate-cli.ts",
     "cf:migrate:local": "wrangler d1 migrations apply DB --local",
-    "cf:deploy": "pnpm cf:build && wrangler d1 migrations apply DB --remote && opennextjs-cloudflare deploy",
+    "cf:deploy": "pnpm cf:build && bash ../../scripts/check-worker-env.sh .open-next && wrangler d1 migrations apply DB --remote ${WRANGLER_CONFIG:+-c $WRANGLER_CONFIG} && opennextjs-cloudflare deploy ${WRANGLER_CONFIG:+-c $WRANGLER_CONFIG}",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "test:e2e": "playwright test"
   },
