@@ -7,7 +7,7 @@ Last updated: 2026-11-19
 - PRs #5–#11 are on `main` (2026-11-10). #9 and #10 landed through #11. Plan: `docs/roadmap.md`,
   decisions 023–033.
 - **Next: first deploy to Cloudflare** (owner approved 2026-11-10: Cloudflare for hosting and
-  email; instance admins `erikgoins@gmail.com`, `erik@flywheel.so`). Steps in
+  email; instance admin addresses live in the deploy config, not in this public repo). Steps in
   `docs/self-host/README.md` → Cloudflare. Waiting on the owner for: `wrangler login`, the Workers
   Paid plan, and a domain onboarded to Cloudflare Email Service. The deploy doubles as the live
   GitHub check: a public URL, no tunnel.
